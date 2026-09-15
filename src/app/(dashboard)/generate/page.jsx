@@ -28,6 +28,8 @@ export default function GeneratePage() {
     const [gender, setGender] = useState("male");
     const [language, setLanguage] = useState("hi");
     const [geminiKey, setGeminiKey] = useState("");
+    const [bgmMood, setBgmMood] = useState("auto");
+    const [bgmVolume, setBgmVolume] = useState(0.1);
 
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -71,6 +73,8 @@ export default function GeneratePage() {
                     provider,
                     dimension,
                     gender,
+                    bgmMood,
+                    bgmVolume,
                     ...(language && { language }),
                     ...(geminiKey.trim() && { geminiApiKey: geminiKey.trim() }),
                     ...(resumeJobId && { jobId: resumeJobId }),
@@ -90,7 +94,7 @@ export default function GeneratePage() {
             } catch (err) {
                 setError(
                     err.message ||
-                        "Network connection error. Please try again.",
+                    "Network connection error. Please try again.",
                 );
                 if (err.jobId) setResumeJobId(err.jobId);
             } finally {
@@ -105,6 +109,8 @@ export default function GeneratePage() {
             gender,
             language,
             geminiKey,
+            bgmMood,
+            bgmVolume,
             resumeJobId,
         ],
     );
@@ -224,13 +230,13 @@ export default function GeneratePage() {
                             </CardContent>
                         </Card>
                     ) : (
-                        <div className="space-y-3 flex-1">
+                        <div className="space-y-4 h-full flex flex-col flex-1">
                             <ScriptEditor value={script} onChange={setScript} />
                             {result && (
                                 <Button
                                     variant="outline"
                                     onClick={() => setShowScript(false)}
-                                    className="w-full"
+                                    className="w-full shrink-0"
                                 >
                                     <Film className="size-4 mr-2" />
                                     View Generated Video
@@ -271,6 +277,10 @@ export default function GeneratePage() {
                         onLanguageChange={setLanguage}
                         geminiKey={geminiKey}
                         onGeminiKeyChange={setGeminiKey}
+                        bgmMood={bgmMood}
+                        onBgmMoodChange={setBgmMood}
+                        bgmVolume={bgmVolume}
+                        onBgmVolumeChange={setBgmVolume}
                         onGenerate={handleGenerate}
                         loading={loading}
                         scriptEmpty={!script.trim()}

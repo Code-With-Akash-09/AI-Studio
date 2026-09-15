@@ -50,6 +50,8 @@ export const useAIStore = create(
             gender: "male",
             language: "",
             geminiKey: "",
+            bgmMood: "auto",
+            bgmVolume: 0.1,
             progress: 0,
             progressMsg: "",
             isGenerating: false,
@@ -80,6 +82,14 @@ export const useAIStore = create(
             set((state) => {
                 state.generator.geminiKey = key;
             }),
+        setBgmMood: (bgmMood) =>
+            set((state) => {
+                state.generator.bgmMood = bgmMood;
+            }),
+        setBgmVolume: (bgmVolume) =>
+            set((state) => {
+                state.generator.bgmVolume = bgmVolume;
+            }),
         setGenerationProgress: ({ progress, message, jobId }) =>
             set((state) => {
                 if (progress !== undefined) state.generator.progress = progress;
@@ -102,6 +112,8 @@ export const useAIStore = create(
                 state.generator.isGenerating = false;
                 state.generator.activeJobId = null;
                 state.generator.lastResult = null;
+                state.generator.bgmMood = "auto";
+                state.generator.bgmVolume = 0.1;
             }),
 
         // UI & Sidebar Slice

@@ -29,6 +29,10 @@ CRITICAL VERBATIM SCRIPT PRESERVATION RULES:
 
 ${languageDirective}
 
+STORYLINE MOOD ANALYSIS:
+Determine the overall narrative atmosphere and emotional arc of the script for background music:
+- "storylineMood": Pick exactly one from ["inspirational", "dramatic", "upbeat", "chill", "suspense", "humorous"]
+
 For every scene provide:
 - id: sequential scene number (1, 2, 3...)
 - narration: the EXACT words from this segment of the input script (verbatim, unaltered)
@@ -40,6 +44,7 @@ For every scene provide:
 Return this exact JSON structure:
 {
   "detectedLanguage": "hi",
+  "storylineMood": "inspirational",
   "scenes": [
     {
       "id": 1,
@@ -76,7 +81,23 @@ ${script}
         .toLowerCase()
         .trim();
 
+    const validMoods = [
+        "inspirational",
+        "dramatic",
+        "upbeat",
+        "chill",
+        "suspense",
+        "humorous",
+    ];
+    const rawMood = String(result.storylineMood || "")
+        .toLowerCase()
+        .trim();
+    const storylineMood = validMoods.includes(rawMood)
+        ? rawMood
+        : "inspirational";
+
     result.detectedLanguage = detectedLanguage;
+    result.storylineMood = storylineMood;
     result.scenes = result.scenes
         .map((scene, index) => ({
             id: scene.id || index + 1,

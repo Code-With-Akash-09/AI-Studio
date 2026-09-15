@@ -23,6 +23,8 @@ import { selectBestAsset } from "./ai/selectAsset.js";
 import { createCaptions } from "./captions/createCaptions.js";
 import { createSrt } from "./captions/createSrt.js";
 import { combineScenes } from "./renderer/combine.js";
+import { resolveBgmTrack } from "./audio/bgm.service.js";
+import { DEFAULT_BGM_VOLUME } from "../../constants/audio.js";
 import {
     renderImageScene,
     renderTextScene,
@@ -246,6 +248,8 @@ export async function generateVideo(script, options = {}) {
         userId = null,
         geminiApiKeys = [],
         dimension = "vertical",
+        bgmMood = "auto",
+        bgmVolume = DEFAULT_BGM_VOLUME,
     } = options;
 
     const normDimension = ["horizontal", "landscape", "16:9"].includes(
@@ -287,6 +291,8 @@ export async function generateVideo(script, options = {}) {
                 userId,
                 geminiApiKeys,
                 dimension: normDimension,
+                bgmMood,
+                bgmVolume,
             },
         });
     }
@@ -305,6 +311,7 @@ export async function generateVideo(script, options = {}) {
         let scenes = existingJob?.scenePlan || [];
         let detectedLanguage =
             existingJob?.detectedLanguage || language || "en";
+        let detectedMood = existingJob?.storylineMood || "inspirational";
         let selectedVoice = existingJob?.selectedVoice;
 
         // Step 1: Script breakdown (skip if already analyzed in existing job)
@@ -323,6 +330,7 @@ export async function generateVideo(script, options = {}) {
             });
 
             detectedLanguage = analysis.detectedLanguage || language || "en";
+            detectedMood = analysis.storylineMood || "inspirational";
             selectedVoice = resolveVoice({
                 voice,
                 language: detectedLanguage,
@@ -338,10 +346,12 @@ export async function generateVideo(script, options = {}) {
                 scenes,
                 detectedLanguage,
                 selectedVoice,
+                storylineMood: detectedMood,
             });
 
             console.log(`Language detected: ${detectedLanguage}`);
             console.log(`Voice selected: ${selectedVoice}`);
+            console.log(`Storyline mood detected: ${detectedMood}`);
         } else if (!selectedVoice) {
             selectedVoice = resolveVoice({
                 voice,
@@ -420,15 +430,39 @@ export async function generateVideo(script, options = {}) {
             console.log(`\n✅ Scene ${scenes[i].id} completed & checkpointed.`);
         }
 
-        // Step 3: Combine Scenes into final MP4
-        const filename = `video-${Date.now()}.mp4`;
-        const outputPath = path.join(config.outputDir, filename);
-        await combineScenes(sceneFiles, outputPath);
-
+        // Step 3: Combine Scenes into final MP4 with storyline background audio
         const totalDuration = sceneFiles.reduce(
             (total, scene) => total + (scene.duration || 0),
             0,
         );
+
+        const filename = `video-${Date.now()}.mp4`;
+        const outputPath = path.join(config.outputDir, filename);
+
+        const bgm = resolveBgmTrack({
+            requestedMood: bgmMood,
+            detectedMood,
+            volume: bgmVolume,
+        });
+
+        if (bgm) {
+            console.log(
+                `\n[Pipeline] Mixing storyline background audio: ${bgm.label} (${bgm.mood})`,
+            );
+            onProgress(
+                92,
+                `Mixing storyline background audio [${bgm.label}]...`,
+                { jobId },
+            );
+        } else {
+            console.log(`\n[Pipeline] Rendering video with voiceover only.`);
+        }
+
+        await combineScenes(sceneFiles, outputPath, {
+            bgmPath: bgm?.trackPath || null,
+            bgmVolume: bgm?.volume || DEFAULT_BGM_VOLUME,
+            totalDuration,
+        });
 
         // Step 4: Keep the final MP4 in the local output directory
         onProgress(95, "Saving video locally...", { jobId });
@@ -450,6 +484,11 @@ export async function generateVideo(script, options = {}) {
                 aiModel: model,
                 dimension: normDimension,
                 storage: "local",
+                bgm: {
+                    mood: bgm?.mood || "none",
+                    label: bgm?.label || "None",
+                    volume: bgm?.volume || 0,
+                },
             },
             userId,
         });

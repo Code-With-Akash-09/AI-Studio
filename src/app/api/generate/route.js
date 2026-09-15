@@ -33,6 +33,8 @@ export async function POST(request) {
         voice,
         humanize,
         dimension,
+        bgmMood,
+        bgmVolume,
         geminiApiKeys: bodyGeminiKeys,
         geminiApiKey: bodyGeminiKey,
     } = body;
@@ -105,6 +107,8 @@ export async function POST(request) {
             voice,
             humanize,
             dimension,
+            bgmMood,
+            bgmVolume,
             userId,
             geminiApiKeys: userGeminiKeys,
             onProgress: (progress, message, meta = {}) => {

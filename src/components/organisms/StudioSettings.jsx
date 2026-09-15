@@ -11,10 +11,12 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { BGM_MOODS, BGM_VOLUMES } from "@/constants/audio";
 import { AI_PROVIDERS, LANGUAGES, VOICE_GENDERS } from "@/constants/models";
 import {
     Key,
     Monitor,
+    Music,
     Sliders,
     Smartphone,
     Sparkles,
@@ -37,6 +39,10 @@ export function StudioSettings({
     onLanguageChange,
     geminiKey,
     onGeminiKeyChange,
+    bgmMood = "auto",
+    onBgmMoodChange,
+    bgmVolume = 0.1,
+    onBgmVolumeChange,
     onGenerate,
     loading,
     scriptEmpty,
@@ -48,6 +54,11 @@ export function StudioSettings({
     const selectedLanguage = LANGUAGES.find(
         (option) => option.value === language,
     );
+    const selectedMood = BGM_MOODS.find((option) => option.value === bgmMood);
+    const selectedVolume =
+        BGM_VOLUMES.find(
+            (option) => String(option.value) === String(bgmVolume),
+        ) || BGM_VOLUMES.find((option) => option.value === 0.1);
 
     return (
         <Card className="flex-1 flex flex-col">
@@ -73,11 +84,10 @@ export function StudioSettings({
                                     onClick={() => onDimensionChange(value)}
                                     variant="outline"
                                     size="default"
-                                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
-                                        dimension === value
+                                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${dimension === value
                                             ? "border-primary bg-primary/10 text-primary"
                                             : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                                    }`}
+                                        }`}
                                 >
                                     <Icon className="size-4" />
                                     <span>{label}</span>
@@ -97,11 +107,10 @@ export function StudioSettings({
                                     onClick={() => onGenderChange(g.value)}
                                     variant="outline"
                                     size="default"
-                                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
-                                        gender === g.value
+                                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${gender === g.value
                                             ? "border-primary bg-primary/10 text-primary"
                                             : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                                    }`}
+                                        }`}
                                 >
                                     <Volume2 className="size-3.5" />
                                     <span>{g.label}</span>
@@ -109,70 +118,158 @@ export function StudioSettings({
                             ))}
                         </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <Label
+                                htmlFor="provider-select"
+                                className="text-xs font-semibold text-slate-700"
+                            >
+                                AI Model Engine
+                            </Label>
+                            <Select
+                                value={provider}
+                                onValueChange={onProviderChange}
+                            >
+                                <SelectTrigger
+                                    id="provider-select"
+                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900"
+                                >
+                                    <SelectValue>
+                                        {selectedProvider?.label || provider}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className={"rounded-lg!"}>
+                                    {AI_PROVIDERS.map((p) => (
+                                        <SelectItem
+                                            key={p.value}
+                                            value={p.value}
+                                            className={"rounded-lg!"}
+                                        >
+                                            {p.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label
+                                htmlFor="language-select"
+                                className="text-xs font-semibold text-slate-700"
+                            >
+                                Target Language
+                            </Label>
+                            <Select
+                                value={language}
+                                onValueChange={onLanguageChange}
+                            >
+                                <SelectTrigger
+                                    id="language-select"
+                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900"
+                                >
+                                    <SelectValue>
+                                        {selectedLanguage?.label || language}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className={"rounded-lg!"}>
+                                    {LANGUAGES.map((l) => (
+                                        <SelectItem
+                                            key={l.value || "auto"}
+                                            value={l.value}
+                                            className={"rounded-lg!"}
+                                        >
+                                            {l.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
                     <div className="space-y-1.5">
                         <Label
-                            htmlFor="provider-select"
-                            className="text-xs font-semibold text-slate-700"
+                            htmlFor="bgm-mood-select"
+                            className="text-xs font-semibold text-slate-700 flex items-center justify-between"
                         >
-                            AI Model Engine
+                            <span className="flex items-center gap-1.5">
+                                <Music className="size-3 text-slate-400" />
+                                <span>Background Audio</span>
+                            </span>
+                            <span className="text-[10px] font-normal text-slate-400">
+                                100% Royalty-Free
+                            </span>
                         </Label>
-                        <Select
-                            value={provider}
-                            onValueChange={onProviderChange}
-                        >
+                        <Select value={bgmMood} onValueChange={onBgmMoodChange}>
                             <SelectTrigger
-                                id="provider-select"
+                                id="bgm-mood-select"
                                 className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900"
                             >
                                 <SelectValue>
-                                    {selectedProvider?.label || provider}
+                                    {selectedMood?.label ||
+                                        "Auto (AI Storyline Match)"}
                                 </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className={"rounded-lg!"}>
-                                {AI_PROVIDERS.map((p) => (
+                            <SelectContent className="rounded-lg!">
+                                {BGM_MOODS.map((m) => (
                                     <SelectItem
-                                        key={p.value}
-                                        value={p.value}
-                                        className={"rounded-lg!"}
+                                        key={m.value}
+                                        value={m.value}
+                                        className="rounded-lg! w-fit"
                                     >
-                                        {p.label}
+                                        <div className="flex flex-col text-left">
+                                            <span className="font-medium text-xs">
+                                                {m.label}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400">
+                                                {m.description}
+                                            </span>
+                                        </div>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="space-y-1.5">
-                        <Label
-                            htmlFor="language-select"
-                            className="text-xs font-semibold text-slate-700"
-                        >
-                            Target Language
-                        </Label>
-                        <Select
-                            value={language}
-                            onValueChange={onLanguageChange}
-                        >
-                            <SelectTrigger
-                                id="language-select"
-                                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900"
+                    {bgmMood !== "none" && (
+                        <div className="space-y-1.5">
+                            <Label
+                                htmlFor="bgm-volume-select"
+                                className="text-xs font-semibold text-slate-700 flex items-center justify-between"
                             >
-                                <SelectValue>
-                                    {selectedLanguage?.label || language}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent className={"rounded-lg!"}>
-                                {LANGUAGES.map((l) => (
-                                    <SelectItem
-                                        key={l.value || "auto"}
-                                        value={l.value}
-                                        className={"rounded-lg!"}
-                                    >
-                                        {l.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                                <span className="flex items-center gap-1.5">
+                                    <Volume2 className="size-3 text-slate-400" />
+                                    <span>Music Volume</span>
+                                </span>
+                                <span className="text-[10px] font-medium text-slate-400">
+                                    Subtle Ducking
+                                </span>
+                            </Label>
+                            <Select
+                                value={String(bgmVolume ?? 0.1)}
+                                onValueChange={(val) =>
+                                    onBgmVolumeChange(Number.parseFloat(val))
+                                }
+                            >
+                                <SelectTrigger
+                                    id="bgm-volume-select"
+                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900"
+                                >
+                                    <SelectValue>
+                                        {selectedVolume?.label ||
+                                            "Subtle (10%)"}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className="rounded-lg!">
+                                    {BGM_VOLUMES.map((vol) => (
+                                        <SelectItem
+                                            key={vol.value}
+                                            value={String(vol.value)}
+                                            className="rounded-lg!"
+                                        >
+                                            {vol.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                     <div className="space-y-1.5">
                         <Label
                             htmlFor="gemini-key-input"
