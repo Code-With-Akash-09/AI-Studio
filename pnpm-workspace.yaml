@@ -1,3 +1,6 @@
 allowBuilds:
+  '@google/genai': true
+  ffmpeg-static: true
+  protobufjs: true
   sharp: false
   unrs-resolver: false

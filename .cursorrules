@@ -1,0 +1,12 @@
+# Cursor Rules — AI Studio
+
+> These are the project-wide coding rules for AI Studio. Read AGENTS.md for full authoritative specifications.
+
+1. **Light Theme Only** — The entire application must use light theme exclusively (`bg-white`, `bg-slate-50`, dark text `text-slate-900`, `border-slate-200`). Never add dark gradients, dark backgrounds, `dark:` Tailwind variants, or dark mode toggles.
+2. **Tailwind CSS Inline Classes Only** — Use standard Tailwind utility classes in `className="..."` for all styling. Never use raw custom CSS utility classes (like `.btn`, `.card`, `.input`) or inline `style={{ ... }}` objects.
+3. **shadcn/ui Components Everywhere** — Use shadcn/ui components (`Button`, `Badge`, `Card`, `Input`, `Dialog`, `Select`, `Tabs`, `Separator`, `Avatar`, `Sheet`, `Textarea`, etc.) for every UI element. Install missing ones with `pnpm dlx shadcn@latest add <component>`. Build custom components on top of shadcn primitives.
+4. **Atomic Folder & File Structure** — Organise under `src/components/atoms/`, `molecules/`, `organisms/`. Raw shadcn lives in `src/components/ui/`. Every component in its own folder with `index.jsx`.
+5. **API Calls in `/actions` Folder** — Never call APIs/fetch inside pages or components. All API functions must live in `src/actions/<module>.js` as plain async functions.
+6. **TanStack Query Hooks for Data Fetching** — Wrap every action in a custom hook inside `src/hooks/` using `useQuery` or `useMutation`. Pages and components only consume these hooks.
+7. **Zustand + Immer for Global State** — Single store named `useAIStore` at `src/store/useAIStore.js`. Do not use React Context or Redux.
+8. **Constants in `/constants` Folder** — All static values, routes, model definitions, and enums live in `src/constants/<concern>.js`. Never hardcode constant data inside pages or components.
