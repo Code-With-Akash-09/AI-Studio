@@ -1,121 +1,65 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# Agents workspace
 
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
-
-<!-- BEGIN:project-rules -->
-
-# AI Studio — Project Rules
-
-These rules apply to **every** AI assistant working in this repository (Claude, Codex, Copilot, Cursor, Antigravity, etc.).  
-Read and follow them **without exception** before writing or editing any code.
+Agents must **not** wait for the user to type “use skill X”. If the task matches a skill below, **read and follow** that skill’s `SKILL.md` without being asked.
 
 ---
 
-## 1 · Theme — Light Only
+## Universal (apply whenever the situation matches)
 
-- The application **must use the light theme exclusively**.
-- Use crisp light backgrounds (`bg-white`, `bg-slate-50`), dark text (`text-slate-900`, `text-slate-600`), and subtle borders (`border-slate-200`).
-- Do **not** add `dark:` Tailwind variants, `prefers-color-scheme: dark` media queries, dark radial gradients, or any dark-mode toggle.
-- All colour tokens, CSS variables, and shadcn theme configuration must be defined for light mode only.
-
----
-
-## 2 · Styling — Tailwind CSS Inline Classes Only
-
-- Use **standard Tailwind CSS inline utility classes** (e.g. `className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200"`) for all layout, spacing, typography, and styling.
-- Do **not** create custom CSS classes (such as `.btn`, `.card`, `.badge-purple`, `.input`) in `globals.css` or CSS files.
-- Do **not** use raw inline `style={{ ... }}` objects for layout or component styling — use Tailwind CSS utility classes instead.
-
----
-
-## 3 · UI Components — shadcn/ui Everywhere
-
-- Use **shadcn/ui** components for **every** UI element across the website (`Button`, `Badge`, `Card`, `Input`, `Dialog`, `Select`, `Tabs`, `Separator`, `Avatar`, `Sheet`, `Textarea`, `Tooltip`, etc.).
-- Never render raw unstyled HTML buttons/cards when a shadcn component exists.
-- If a required component does not yet exist in `src/components/ui/`, install it with:
-  ```
-  pnpm dlx shadcn@latest add <component-name>
-  ```
-- Custom components must be composed on top of existing shadcn primitives inside the atomic layer (see Rule 4).
+| When | Follow |
+|------|--------|
+| Every assistant reply (style, modes, `stop caveman` / `normal mode`) | [skills/agent-terse/SKILL.md](skills/agent-terse/SKILL.md) |
+| Before any read, edit, or patch of an **existing** file (path may have moved; user may have edited since last turn) | [skills/verify-file-location/SKILL.md](skills/verify-file-location/SKILL.md) — resolve path, **Read immediately before** `StrReplace` / `Write` |
+| Before **creating or renaming** any file or folder | [skills/naming-conventions/SKILL.md](skills/naming-conventions/SKILL.md) |
+| Before **creating or moving** anything under a project `.artifacts/` tree | [skills/dev-artifacts/SKILL.md](skills/dev-artifacts/SKILL.md) |
+| After meaningful impl / phase complete — sync related `.artifacts/` (plans, status, refs); remind phase commit if plan has a checkpoint | [skills/artifacts-upkeep/SKILL.md](skills/artifacts-upkeep/SKILL.md) |
+| When suggesting **commit messages**, `git add` groupings, or staging splits (plan commit checkpoints = scope hint only) | [skills/git-commit/SKILL.md](skills/git-commit/SKILL.md) |
+| When writing a **code review** to disk as markdown under `.artifacts/` | [skills/code-review-artifacts/SKILL.md](skills/code-review-artifacts/SKILL.md) |
+| Env files, credentials, Infisical, secrets, or config keys (no hardcoded secrets; `.env.example` only) | [skills/secrets-hygiene/SKILL.md](skills/secrets-hygiene/SKILL.md) |
+| Recording architecture / product / data / security decisions (`.artifacts/decisions/`) | [skills/decision-records/SKILL.md](skills/decision-records/SKILL.md) |
+| Before any product `.ts`/`.tsx` write (Next/React web: `app/`, `actions/`, `components/`, `hooks/`, `store/`, `providers/`, `services/`, `managers/`, app `lib/`, `types/`, `schemas/`) | [skills/app-code-standards/SKILL.md](skills/app-code-standards/SKILL.md) — **same-turn Read** of `project-structure` **SKILL + REFERENCE** + `code-style`; add `forms-standard` if form-shaped. Do not write first. Memory from a prior turn ≠ a Read. |
 
 ---
 
-## 4 · Atomic Folder & File Structure
+## This repo (`skills/` — agent skills)
 
-Organise **all** components under `src/components/` using Atomic Design:
-
-```
-src/components/
-  atoms/       ← smallest, stateless UI units (Button wrappers, Label, Badge, Icon wrappers …)
-  molecules/   ← combinations of atoms with light logic (FormField, SearchBar, StatCard …)
-  organisms/   ← complex, self-contained sections (Header, Sidebar, DataTable …)
-  ui/          ← raw shadcn-generated files (do NOT edit manually)
-```
-
-- Every component lives in its own folder with an `index.jsx` (or `.tsx`) file.
-- Never place business-logic components directly in `src/components/ui/`.
+| When | Follow |
+|------|--------|
+| Creating a skill, editing skill layout, or changing `SKILL.md` conventions | [skills/create-skill/SKILL.md](skills/create-skill/SKILL.md) |
 
 ---
 
-## 5 · API Calls — `/actions` Folder
+## Application / product code
 
-- **Never** call an API endpoint or `fetch`/`axios` directly inside a page or component.
-- All HTTP/fetch/axios calls must live in `src/actions/` organised by module:
+**Web product `.ts`/`.tsx` is not optional.** `app-code-standards` (Universal) already loads `project-structure` (SKILL + REFERENCE) + `code-style` (+ `forms-standard` when form-shaped). Do **not** skip them because the user did not name the skill, or because a nearby file is sloppy.
 
-```
-src/actions/
-  auth.js
-  chat.js
-  models.js
-  videos.js
-  …
-```
+Pattern A `index.ts` owns I/O; `services/` = connect/send only; `lib/` = no I/O. Next `"use server"` files export async functions only (`return await …`). Client UI uses `use*.ts`; RSC / `route.ts` / cron import `index.ts`.
 
-- Each function in an actions file is a plain async function that performs exactly one API call and returns the raw data or throws a typed error.
+Load the rest of this table when files, stack, or the request match — not the whole list on every chat.
 
----
+| Area | Skills (open the one that matches) |
+|------|-------------------------------------|
+| Next.js layout (actions, hooks, store, services, lib, types, routes) | [skills/project-structure/SKILL.md](skills/project-structure/SKILL.md) + [REFERENCE.md](skills/project-structure/REFERENCE.md) — required via `app-code-standards` for web product writes |
+| API wire contract / versioning (`/api/vN`, envelopes, lists, idempotency) | [skills/api-contracts/SKILL.md](skills/api-contracts/SKILL.md) — **plus** `project-structure` for file placement; this skill = HTTP contract |
+| Capability authorize + UI gates; multi-tenant scope from context (not client) | [skills/scoped-authz/SKILL.md](skills/scoped-authz/SKILL.md) |
+| Audit events on writes / auth / operator actions (any tenancy model) | [skills/mutation-audit/SKILL.md](skills/mutation-audit/SKILL.md) |
+| TS/React implementation style (exports, Tailwind scope, complexity) | [skills/code-style/SKILL.md](skills/code-style/SKILL.md) — required via `app-code-standards` for web product writes |
+| Forms | [skills/forms-standard/SKILL.md](skills/forms-standard/SKILL.md) — required when the change is form-shaped (`<form`, RHF, field/`useState` for inputs) |
+| Tailwind v4 / tokens / CVA / dark mode | [skills/tailwind/SKILL.md](skills/tailwind/SKILL.md) |
+| shadcn / `components.json` / registry | [skills/shadcn/SKILL.md](skills/shadcn/SKILL.md) **plus** [skills/shadcn-standard/SKILL.md](skills/shadcn-standard/SKILL.md) — CLI/registry vs house `nativeButton` / compose; this skill wins on conflict |
+| Web UI quality / redesign | [skills/ui-design-web/SKILL.md](skills/ui-design-web/SKILL.md) |
+| React Native UI / RN conventions | [skills/react-native-ui/SKILL.md](skills/react-native-ui/SKILL.md), [skills/react-native-styling/SKILL.md](skills/react-native-styling/SKILL.md), [skills/ui-design-native/SKILL.md](skills/ui-design-native/SKILL.md) |
+| Heavy TypeScript types | [skills/typescript-advanced-types/SKILL.md](skills/typescript-advanced-types/SKILL.md) |
+| MongoDB connections / pools | [skills/mongodb-connection/SKILL.md](skills/mongodb-connection/SKILL.md) |
+| One-shot `.scripts/<name>/` Mongo ops (backfill / heal / migrate) | [skills/write-script/SKILL.md](skills/write-script/SKILL.md) — prefer over `mongodb-connection` for CLI scripts |
+| MongoDB **performance** / indexes / slow queries | [skills/mongodb-query-optimizer/SKILL.md](skills/mongodb-query-optimizer/SKILL.md) |
+| MongoDB schema / data modeling | [skills/mongodb-schema-design/SKILL.md](skills/mongodb-schema-design/SKILL.md) |
+| PRD → plan / phased implementation (each phase includes a **commit checkpoint**) | [skills/prd-workflow/SKILL.md](skills/prd-workflow/SKILL.md) |
+| Excalidraw diagrams | [skills/excalidraw/SKILL.md](skills/excalidraw/SKILL.md) |
+| Next.js devtools-style CLI inspection | [skills/next-browser/SKILL.md](skills/next-browser/SKILL.md) |
+| Discover / install external skills (`pnpx skills …`) | [skills/find-skills/SKILL.md](skills/find-skills/SKILL.md) |
+| Stress-test a plan or design | [skills/grill-me/SKILL.md](skills/grill-me/SKILL.md) |
+| JS/TS codebase health, dead code, boundaries, change-set risk, security candidates | [skills/fallow/SKILL.md](skills/fallow/SKILL.md) |
+| Expo SDK upgrades and related dependency fixes | [skills/upgrading-expo/SKILL.md](skills/upgrading-expo/SKILL.md) |
 
-## 6 · Data-Fetching — TanStack Query Hooks
-
-- **Never** call action functions directly from pages or components.
-- Wrap every action in a custom hook inside `src/hooks/` using **TanStack Query** (`@tanstack/react-query`):
-  - `useQuery` / `useInfiniteQuery` for reads
-  - `useMutation` for writes
-- Hook naming convention: `use<Resource><Operation>` — e.g. `useModelsList`, `useVideoGenerate`, `useChatSend`.
-- Pages and components **only** consume these hooks.
-
----
-
-## 7 · Global State — Zustand + Immer
-
-- Use **Zustand** with the **Immer** middleware for all global/shared state.
-- The single store must be named **`useAIStore`** and live at `src/store/useAIStore.js`.
-- Slice the store logically (auth slice, video slice, chat slice, settings slice, …) but export a single combined store.
-- Do **not** use React Context or Redux for global state.
-
----
-
-## 8 · Constants — `/constants` Folder
-
-- **Never** hardcode constant data (model lists, API base URLs, route names, enum-like values, pricing plans, etc.) inside pages or components.
-- All constants must live in `src/constants/` organised by concern:
-
-```
-src/constants/
-  models.js     ← AI model definitions
-  routes.js     ← named route paths
-  api.js        ← base URLs, endpoint paths
-  …
-```
-
-- Import from the constants file, never inline the values.
-
----
-
-<!-- END:project-rules -->
+If two skills overlap, prefer the **more specific** one (e.g. `forms-standard` over generic React advice for a form task; `shadcn-standard` over upstream `shadcn` for `nativeButton` / Base compose; `api-contracts` **and** `project-structure` together for HTTP routes — contract vs placement; `write-script` over `mongodb-connection` for `.scripts` CLI). For mutations: `scoped-authz` (who/where) + `mutation-audit` (what was recorded) together when both apply. For phased work: `prd-workflow` checkpoints → `git-commit` (live suggestion) → `artifacts-upkeep`.

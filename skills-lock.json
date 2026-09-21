@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "skills": {
+    "agent-terse": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/agent-terse/SKILL.md",
+      "computedHash": "7731875d5c28ab90cf3ec042c9de72715bc214b72506162dacc8567169dfdeb7"
+    },
+    "api-contracts": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/api-contracts/SKILL.md",
+      "computedHash": "4e5e02a6e5a9010585625447fd963270c723d6513b430a8ea6274fb6390ca7be"
+    },
+    "app-code-standards": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/app-code-standards/SKILL.md",
+      "computedHash": "17edc7191e53b585c4dfe36aacd277272ecbfd8c760698ef16eabed6c30adbfb"
+    },
+    "artifacts-upkeep": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/artifacts-upkeep/SKILL.md",
+      "computedHash": "508a66ff96c8c9d8a611ba662b84e0c030e12fa15424ef43f827b68139b5fd32"
+    },
+    "code-review-artifacts": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/code-review-artifacts/SKILL.md",
+      "computedHash": "da3ad0c9b0405a7d45189a01cbf00e392839769865a20a82f14c71f082173c68"
+    },
+    "code-style": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/code-style/SKILL.md",
+      "computedHash": "cbd3f010ee73f2423becb52626898ad43df62a259f0d3c240b5fcd0999be524e"
+    },
+    "create-skill": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/create-skill/SKILL.md",
+      "computedHash": "3107fff0f21647f223f047c94ca47095fb44439c174187ebec3578dc5d65768a"
+    },
+    "decision-records": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/decision-records/SKILL.md",
+      "computedHash": "4c6ba0c31b036266cbecb3c6fbcd8466ab1ab276cb043cd854144c10e15f1e8e"
+    },
+    "dev-artifacts": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/dev-artifacts/SKILL.md",
+      "computedHash": "7742e8fc5a8f206d08e5de47c6e7c1483a0031f2832778a826fca0143a905a1c"
+    },
+    "excalidraw": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/excalidraw/SKILL.md",
+      "computedHash": "f433e45c6af13542fe66d69e8b2832f3e396de224b264cff5206f90e9e8530f3"
+    },
+    "forms-standard": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/forms-standard/SKILL.md",
+      "computedHash": "1fb36078ee3482b3812d612e7cd274876f0f26d2870f64efd3c9652f1432674e"
+    },
+    "git-commit": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/git-commit/SKILL.md",
+      "computedHash": "fda919e17f27cd1b69a420df6818b9c3e3cfe4eb9fc27493683c6a074ff0df36"
+    },
+    "grill-me": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/grill-me/SKILL.md",
+      "computedHash": "404f1694c1ce6875b48903fbaa6776dfdc0055beebc1fa88bdf4c6f21dc7c3ee"
+    },
+    "mutation-audit": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/mutation-audit/SKILL.md",
+      "computedHash": "f7c033f2389128472668abcc2797faebeeb3cea406396a24df94f0c20c806627"
+    },
+    "naming-conventions": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/naming-conventions/SKILL.md",
+      "computedHash": "d26426bf52a18c21e37edd196ff731e1676c1afca9761f3d3fba4d3bd799970e"
+    },
+    "prd-workflow": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/prd-workflow/SKILL.md",
+      "computedHash": "5f7b393a540b24a5672362432234d0336919928c2c647c7a38f18f352a371c9a"
+    },
+    "project-structure": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/project-structure/SKILL.md",
+      "computedHash": "f96297953a4199c09b4651a31c9fc595e115475c75b0575af826850535f17822"
+    },
+    "react-native-styling": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-native-styling/SKILL.md",
+      "computedHash": "89ab3600b2e0dd6277252b0f60a006e3495e5e58c3ebd42c19a5fadda580ab17"
+    },
+    "react-native-ui": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-native-ui/SKILL.md",
+      "computedHash": "6234795968bf617b8b3b013b6eb26260aef11dc962eb44abdc3d1be8da63539a"
+    },
+    "scoped-authz": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/scoped-authz/SKILL.md",
+      "computedHash": "3331bdc63ed6d0f231f2ae2a4c0b685db88b1044360db18cfae8bb5d26ab60a8"
+    },
+    "secrets-hygiene": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/secrets-hygiene/SKILL.md",
+      "computedHash": "61f9471be0f81145bc69edbf1e26f3af2525c8ede0924c1f03b6b43fcf12250f"
+    },
+    "shadcn-standard": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn-standard/SKILL.md",
+      "computedHash": "4d4e62f08bbf0ca682770155dd2d67d346031e9fd1af57e7b6d46aa744c6f392"
+    },
+    "tailwind": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/tailwind/SKILL.md",
+      "computedHash": "7c55c7d28ec7110cd147a1245603cec953d243ba4560d53cfaa8786f35920f81"
+    },
+    "ui-design-native": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ui-design-native/SKILL.md",
+      "computedHash": "8b935efa6434a93e490bf7a0208a1a9ee3f3a365de5d33b7466e248abe75b11f"
+    },
+    "ui-design-web": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ui-design-web/SKILL.md",
+      "computedHash": "0311855cf932be3396cda0e69964420b08207f9d26b9f4e0793d6a1dad56f62a"
+    },
+    "verify-file-location": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/verify-file-location/SKILL.md",
+      "computedHash": "a8daa2997a8982669051d85b38868b4fc34c239d9ed5c618c365abc192442327"
+    },
+    "write-script": {
+      "source": "ankit1598/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/write-script/SKILL.md",
+      "computedHash": "e493bd7464590405db45cad5685a2c742ee3cd101edec6870de641ddfa4b4112"
+    }
+  }
+}
