@@ -50,6 +50,7 @@ export const useAIStore = create(
             gender: "male",
             language: "",
             geminiKey: "",
+            visualEngine: "ai_realism",
             bgmMood: "auto",
             bgmVolume: 0.1,
             progress: 0,
@@ -61,6 +62,10 @@ export const useAIStore = create(
         setScript: (script) =>
             set((state) => {
                 state.generator.script = script;
+            }),
+        setVisualEngine: (engine) =>
+            set((state) => {
+                state.generator.visualEngine = engine;
             }),
         setProvider: (provider) =>
             set((state) => {

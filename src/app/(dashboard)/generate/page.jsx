@@ -27,6 +27,7 @@ export default function GeneratePage() {
     const [dimension, setDimension] = useState("vertical");
     const [gender, setGender] = useState("male");
     const [language, setLanguage] = useState("hi");
+    const [visualEngine, setVisualEngine] = useState("ai_realism");
     const [geminiKey, setGeminiKey] = useState("");
     const [bgmMood, setBgmMood] = useState("auto");
     const [bgmVolume, setBgmVolume] = useState(0.1);
@@ -73,6 +74,7 @@ export default function GeneratePage() {
                     provider,
                     dimension,
                     gender,
+                    visualEngine,
                     bgmMood,
                     bgmVolume,
                     ...(language && { language }),
@@ -94,7 +96,7 @@ export default function GeneratePage() {
             } catch (err) {
                 setError(
                     err.message ||
-                    "Network connection error. Please try again.",
+                        "Network connection error. Please try again.",
                 );
                 if (err.jobId) setResumeJobId(err.jobId);
             } finally {
@@ -108,6 +110,7 @@ export default function GeneratePage() {
             dimension,
             gender,
             language,
+            visualEngine,
             geminiKey,
             bgmMood,
             bgmVolume,
@@ -275,6 +278,8 @@ export default function GeneratePage() {
                         onProviderChange={setProvider}
                         language={language}
                         onLanguageChange={setLanguage}
+                        visualEngine={visualEngine}
+                        onVisualEngineChange={setVisualEngine}
                         geminiKey={geminiKey}
                         onGeminiKeyChange={setGeminiKey}
                         bgmMood={bgmMood}

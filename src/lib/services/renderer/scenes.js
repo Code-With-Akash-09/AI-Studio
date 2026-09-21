@@ -30,6 +30,7 @@ function writeAssFile(
     sceneId,
     language = "en",
     dimension = "vertical",
+    options = {},
 ) {
     if (!captions || captions.length === 0) return null;
 
@@ -40,11 +41,8 @@ function writeAssFile(
     // marginV: distance from bottom edge for bottom-center alignment (alignment=2)
     const marginV = isHorizontal ? 60 : 80;
 
-    // Pick font name heuristic — ASS fontname must match a font installed on the
-    // host OR we embed the font reference. For robustness we fall back to "Arial"
-    // which is universally available. libass will substitute if the font is missing.
+    // Pick font name heuristic
     const fontFileName = getFontFileName(captions[0]?.text ?? "", language);
-    // Strip extension, e.g. "Mukta-Bold.ttf" -> "Mukta-Bold"
     const fontName = fontFileName.replace(/\.[^.]+$/, "");
 
     const assContent = createAss(captions, {
@@ -100,12 +98,19 @@ export async function renderImageScene(
     language = "en",
     dimension = "vertical",
     sceneId = "0",
+    options = {},
 ) {
     const isHorizontal = dimension === "horizontal";
     const width = isHorizontal ? 1920 : 1080;
     const height = isHorizontal ? 1080 : 1920;
 
-    const assPath = writeAssFile(captions, sceneId, language, dimension);
+    const assPath = writeAssFile(
+        captions,
+        sceneId,
+        language,
+        dimension,
+        options,
+    );
 
     let vfilter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},fps=30,setpts=PTS-STARTPTS`;
     if (assPath) {
@@ -157,12 +162,19 @@ export async function renderVideoScene(
     language = "en",
     dimension = "vertical",
     sceneId = "0",
+    options = {},
 ) {
     const isHorizontal = dimension === "horizontal";
     const width = isHorizontal ? 1920 : 1080;
     const height = isHorizontal ? 1080 : 1920;
 
-    const assPath = writeAssFile(captions, sceneId, language, dimension);
+    const assPath = writeAssFile(
+        captions,
+        sceneId,
+        language,
+        dimension,
+        options,
+    );
 
     let vfilter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},fps=30,setpts=PTS-STARTPTS`;
     if (assPath) {

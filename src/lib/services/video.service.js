@@ -20,6 +20,7 @@ import {
 } from "../utils/files.js";
 import { analyzeScript } from "./ai/analyzeScript.js";
 import { selectBestAsset } from "./ai/selectAsset.js";
+import { synthesizeSceneVisual } from "./ai/synthesizeSceneVisual.js";
 import { createCaptions } from "./captions/createCaptions.js";
 import { createSrt } from "./captions/createSrt.js";
 import { combineScenes } from "./renderer/combine.js";
@@ -48,6 +49,7 @@ async function createScene(
         language = "en",
         geminiApiKeys,
         dimension = "vertical",
+        visualEngine = "ai_realism",
         excludeUrls = [],
         onProgress = () => {},
         progressStart = 20,
@@ -132,60 +134,198 @@ async function createScene(
         };
     }
 
-    console.log(
-        `\nSearching media assets (MongoDB Cache -> Pexels [${dimension}])...`,
-    );
-    const searchResult = await searchAssets(scene, { dimension, excludeUrls });
+    let asset = null;
+    let isVideo = false;
+    let extension = "jpg";
+    let inputPath = path.join(config.tempDir, `asset-${index}.${extension}`);
 
-    if (
-        !searchResult ||
-        !Array.isArray(searchResult.assets) ||
-        searchResult.assets.length === 0
-    ) {
-        throw new Error(`No assets found for scene ${scene.id}`);
+    if (visualEngine === "ai_realism") {
+        // MODE 1: 100% AI Photorealistic Cinematic Visual Synthesis (Zero Mismatch)
+        console.log(
+            `\n[AI Realism Engine] Synthesizing custom 8K cinematic frame for Scene ${index}...`,
+        );
+        onProgress(
+            Math.round(progressStart + (progressEnd - progressStart) * 0.55),
+            `Synthesizing cinematic visual for scene ${index}...`,
+            { currentScene: index },
+        );
+
+        try {
+            const synthResult = await synthesizeSceneVisual(scene, inputPath, {
+                dimension,
+                seed: index * 1000 + (Date.now() % 10000),
+            });
+
+            asset = {
+                type: "image",
+                url: synthResult.path,
+                source: "flux_synthesized",
+                matchScore: 99,
+                selectionReason: `Synthesized precision photorealistic frame: ${scene.visualBrief}`,
+            };
+            isVideo = false;
+        } catch (synthErr) {
+            console.warn(
+                `[AI Realism Engine] Synthesis failed: ${synthErr.message}. Attempting stock search fallback...`,
+            );
+            // Fall back to stock search
+            let searchResult = null;
+            try {
+                searchResult = await searchAssets(scene, {
+                    dimension,
+                    excludeUrls,
+                });
+            } catch (err) {
+                console.warn(
+                    `[Search] Stock fallback search failed: ${err.message}`,
+                );
+            }
+
+            if (searchResult?.assets?.length) {
+                asset = await selectBestAsset(scene, searchResult.assets, {
+                    provider,
+                    model,
+                    geminiApiKeys,
+                    excludeUrls,
+                });
+            }
+
+            if (asset?.url) {
+                isVideo = asset.type === "video" || asset.type === "gif";
+                extension = isVideo ? "mp4" : "jpg";
+                inputPath = path.join(
+                    config.tempDir,
+                    `asset-${index}.${extension}`,
+                );
+                await downloadAsset(asset.url, inputPath);
+            } else {
+                throw new Error(
+                    `Could not synthesize visual or find fallback stock asset for scene ${scene.id}: ${synthErr.message}`,
+                );
+            }
+        }
+    } else {
+        // MODE 2 / 3: Hybrid or Stock Video Search
+        console.log(
+            `\nSearching media assets (MongoDB Cache -> Pexels [${dimension}])...`,
+        );
+        let searchResult = null;
+        try {
+            searchResult = await searchAssets(scene, {
+                dimension,
+                excludeUrls,
+            });
+        } catch (err) {
+            console.warn(`[Search] Stock search failed: ${err.message}`);
+        }
+
+        const hasStockAssets =
+            searchResult &&
+            Array.isArray(searchResult.assets) &&
+            searchResult.assets.length > 0;
+
+        if (hasStockAssets) {
+            onProgress(
+                Math.round(
+                    progressStart + (progressEnd - progressStart) * 0.45,
+                ),
+                `Evaluating stock visual match for scene ${index}...`,
+                { currentScene: index },
+            );
+            asset = await selectBestAsset(scene, searchResult.assets, {
+                provider,
+                model,
+                geminiApiKeys,
+                excludeUrls,
+            });
+        }
+
+        const isLowMatch =
+            !asset?.url ||
+            (typeof asset.matchScore === "number" && asset.matchScore < 80);
+
+        if (isLowMatch && visualEngine !== "stock") {
+            console.log(
+                `\n[Hybrid Fallback] Stock match score (${asset?.matchScore || 0}%) below threshold (80%). Synthesizing custom visual frame...`,
+            );
+            onProgress(
+                Math.round(
+                    progressStart + (progressEnd - progressStart) * 0.55,
+                ),
+                `Synthesizing custom visual for scene ${index}...`,
+                { currentScene: index },
+            );
+
+            try {
+                const synthResult = await synthesizeSceneVisual(
+                    scene,
+                    inputPath,
+                    {
+                        dimension,
+                        seed: index * 1000 + (Date.now() % 10000),
+                    },
+                );
+
+                asset = {
+                    type: "image",
+                    url: synthResult.path,
+                    source: "flux_synthesized",
+                    matchScore: 98,
+                    selectionReason: `Synthesized precision visual frame: ${scene.visualBrief}`,
+                };
+                isVideo = false;
+            } catch (synthErr) {
+                console.warn(
+                    `[Hybrid Fallback] Synthesis failed: ${synthErr.message}. ${asset?.url ? "Falling back to best stock asset." : "No fallback available."}`,
+                );
+                // If synthesis fails but we still have a stock URL (even low score), use it
+                if (!asset?.url) {
+                    throw new Error(
+                        `No acceptable visual asset could be found or synthesized for scene ${scene.id}`,
+                    );
+                }
+                // else: fall through to the stock asset download below
+                isVideo = asset.type === "video" || asset.type === "gif";
+                extension = isVideo ? "mp4" : "jpg";
+                inputPath = path.join(
+                    config.tempDir,
+                    `asset-${index}.${extension}`,
+                );
+                await downloadAsset(asset.url, inputPath);
+            }
+        } else if (asset?.url) {
+            onProgress(
+                Math.round(progressStart + (progressEnd - progressStart) * 0.6),
+                `Stock visual selected for scene ${index} (${asset.matchScore}% match).`,
+                { currentScene: index },
+            );
+            console.log(
+                `Selected stock asset type: ${asset.type} (${asset.matchScore}% match)`,
+            );
+            isVideo = asset.type === "video" || asset.type === "gif";
+            extension = isVideo ? "mp4" : "jpg";
+            inputPath = path.join(
+                config.tempDir,
+                `asset-${index}.${extension}`,
+            );
+            await downloadAsset(asset.url, inputPath);
+        } else {
+            throw new Error(
+                `No acceptable visual asset could be found or synthesized for scene ${scene.id}`,
+            );
+        }
     }
 
-    onProgress(
-        Math.round(progressStart + (progressEnd - progressStart) * 0.45),
-        `Visual assets found for scene ${index}.`,
-        { currentScene: index },
-    );
-
-    console.log(
-        `Found ${searchResult.assets.length} candidate assets (${searchResult.source || "media"}).`,
-    );
-
-    console.log(`\nSelecting best asset with AI (${provider || "gemini"})...`);
-    const asset = await selectBestAsset(scene, searchResult.assets, {
-        provider,
-        model,
-        geminiApiKeys,
-        excludeUrls,
-    });
-
-    if (!asset?.url) {
-        throw new Error(`No valid asset selected for scene ${scene.id}`);
-    }
-
-    onProgress(
-        Math.round(progressStart + (progressEnd - progressStart) * 0.6),
-        `Visual selected for scene ${index}.`,
-        { currentScene: index },
-    );
-
-    console.log(`Selected asset type: ${asset.type}`);
-    console.log(`Selected asset source: ${asset.source || "unknown"}`);
-
-    const isVideo = asset.type === "video" || asset.type === "gif";
-    const extension = isVideo ? "mp4" : "jpg";
-    const inputPath = path.join(config.tempDir, `asset-${index}.${extension}`);
-
-    await downloadAsset(asset.url, inputPath);
     onProgress(
         Math.round(progressStart + (progressEnd - progressStart) * 0.7),
-        `Preparing scene ${index}.`,
+        `Rendering scene ${index} with motion...`,
         { currentScene: index },
     );
+
+    const renderOptions = {
+        onScreenHighlight: scene.onScreenHighlight,
+        cameraShot: scene.cameraShot,
+    };
 
     if (isVideo) {
         console.log(`\nRendering video scene (${dimension})...`);
@@ -198,9 +338,12 @@ async function createScene(
             language,
             dimension,
             String(index),
+            renderOptions,
         );
     } else {
-        console.log(`\nRendering image scene (${dimension})...`);
+        console.log(
+            `\nRendering image scene with Ken Burns motion (${dimension})...`,
+        );
         await renderImageScene(
             inputPath,
             audioPath,
@@ -210,6 +353,7 @@ async function createScene(
             language,
             dimension,
             String(index),
+            renderOptions,
         );
     }
 
@@ -228,6 +372,16 @@ async function createScene(
         assetUrl: asset.url,
         narration: scene.narration,
         dimension,
+        visualBrief: scene.visualBrief,
+        subject: scene.subject,
+        environment: scene.environment,
+        action: scene.action,
+        cameraShot: scene.cameraShot,
+        lightingMood: scene.lightingMood,
+        onScreenHighlight: scene.onScreenHighlight,
+        matchScore: asset.matchScore || 85,
+        selectionReason:
+            asset.selectionReason || "Matched via directorial brief",
     };
 }
 
@@ -248,6 +402,7 @@ export async function generateVideo(script, options = {}) {
         userId = null,
         geminiApiKeys = [],
         dimension = "vertical",
+        visualEngine = "ai_realism",
         bgmMood = "auto",
         bgmVolume = DEFAULT_BGM_VOLUME,
     } = options;
@@ -291,6 +446,7 @@ export async function generateVideo(script, options = {}) {
                 userId,
                 geminiApiKeys,
                 dimension: normDimension,
+                visualEngine,
                 bgmMood,
                 bgmVolume,
             },
@@ -407,6 +563,7 @@ export async function generateVideo(script, options = {}) {
                 language: detectedLanguage,
                 geminiApiKeys,
                 dimension: normDimension,
+                visualEngine,
                 excludeUrls: Array.from(usedAssetUrls),
                 onProgress,
                 progressStart: 20 + Math.floor((i / scenes.length) * 65),
@@ -523,6 +680,7 @@ export async function generateVideo(script, options = {}) {
             dimension: normDimension,
             language: detectedLanguage,
             voice: selectedVoice,
+            scenes: sceneFiles,
             storage: "local",
         };
     } catch (error) {

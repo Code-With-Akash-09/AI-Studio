@@ -22,7 +22,7 @@ function formatAssTime(seconds) {
 }
 
 /**
- * Build a minimal ASS file from captions array.
+ * Build a styled ASS file from captions array and optional directorial on-screen highlight.
  *
  * @param {Array<{text: string, start: number, end: number}>} captions
  * @param {{
@@ -31,7 +31,8 @@ function formatAssTime(seconds) {
  *   alignment?: number,
  *   width?: number,
  *   height?: number,
- *   fontName?: string
+ *   fontName?: string,
+ *   onScreenHighlight?: string
  * }} opts
  * @returns {string} ASS file content
  */
@@ -63,12 +64,10 @@ Style: Default,${fontName},${fontSize},&H00FFFFFF,&H000000FF,&H00000000,&HAA0000
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`;
 
-    const events = captions
-        .map(
-            (c) =>
-                `Dialogue: 0,${formatAssTime(c.start)},${formatAssTime(c.end)},Default,,0,0,0,,${c.text}`,
-        )
-        .join("\n");
+    const dialogueEvents = captions.map(
+        (c) =>
+            `Dialogue: 0,${formatAssTime(c.start)},${formatAssTime(c.end)},Default,,0,0,0,,${c.text}`,
+    );
 
-    return `${header}\n${events}\n`;
+    return `${header}\n${dialogueEvents.join("\n")}\n`;
 }

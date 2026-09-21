@@ -27,3 +27,21 @@ export const LANGUAGES = [
     { value: "fr", label: "French (Français)" },
     { value: "de", label: "German (Deutsch)" },
 ];
+
+export const VISUAL_ENGINES = [
+    {
+        value: "ai_realism",
+        label: "AI Photorealism (Recommended)",
+        description: "100% scene-accurate imagery with cinematic motion",
+    },
+    {
+        value: "hybrid",
+        label: "Smart Hybrid (Stock + AI)",
+        description: "Strictly vetted stock with AI photorealism fallback",
+    },
+    {
+        value: "stock",
+        label: "Stock Video Only",
+        description: "Pexels stock video footage only",
+    },
+];

@@ -18,18 +18,41 @@ export async function searchAssets(
     }
 
     const type = visualType === "video" ? "video" : "image";
-    const queries = Array.isArray(scene.searchQueries)
+
+    // Build prioritized search queries: explicit searchQueries first, followed by subject/environment if needed
+    const rawQueries = Array.isArray(scene.searchQueries)
         ? scene.searchQueries
         : [];
+    const fallbackQueries = [scene.subject, scene.environment].filter(Boolean);
+    const queries = Array.from(
+        new Set([...rawQueries, ...fallbackQueries]),
+    ).filter((q) => typeof q === "string" && q.trim().length > 0);
+
     const orientation = dimension === "horizontal" ? "landscape" : "portrait";
     const excludedSet = new Set(
         Array.isArray(excludeUrls) ? excludeUrls.filter(Boolean) : [],
     );
 
+    const negativeTerms = Array.isArray(scene.negativeKeywords)
+        ? scene.negativeKeywords
+              .map((k) => String(k).toLowerCase().trim())
+              .filter(Boolean)
+        : [];
+
+    const isNegativeMatch = (asset) => {
+        if (!asset) return false;
+        const textToCheck =
+            `${asset.query || ""} ${asset.url || ""}`.toLowerCase();
+        return negativeTerms.some(
+            (neg) => neg.length > 2 && textToCheck.includes(neg),
+        );
+    };
+
     // STEP 1: Check MongoDB Asset Cache first
     const cachedAssets = await findCachedAssets(queries, type, 18);
     const freshCached = (cachedAssets || []).filter(
-        (asset) => asset.url && !excludedSet.has(asset.url),
+        (asset) =>
+            asset.url && !excludedSet.has(asset.url) && !isNegativeMatch(asset),
     );
 
     if (freshCached.length >= 3) {
@@ -77,9 +100,9 @@ export async function searchAssets(
         ).values(),
     ];
 
-    // Filter out assets already used in earlier scenes of this video
+    // Filter out assets already used in earlier scenes of this video or matching negative terms
     const freshLiveResults = uniqueResults.filter(
-        (asset) => !excludedSet.has(asset.url),
+        (asset) => !excludedSet.has(asset.url) && !isNegativeMatch(asset),
     );
     const finalAssets =
         freshLiveResults.length > 0 ? freshLiveResults : uniqueResults;

@@ -5,7 +5,8 @@ import { runFFmpeg } from "../../utils/ffmpeg.js";
 
 /**
  * Combines rendered scene videos into a final MP4, optionally mixing
- * a storyline background music track with automated volume ducking and fading.
+ * a storyline background music track and contextual sound effects (SFX)
+ * with automated volume ducking, adelay offsets, and fading.
  *
  * @param {Array<Object>} sceneFiles - Array of scene objects with .path and .duration
  * @param {string} outputPath - Destination path for final MP4
@@ -65,21 +66,22 @@ export async function combineScenes(
         bgmPath && fs.existsSync(/*turbopackIgnore: true*/ bgmPath),
     );
 
+    console.log(
+        `\n[Combine] Stitching ${sceneFiles.length} scenes (Duration: ${duration.toFixed(1)}s, BGM: ${hasBgm ? "yes" : "no"})...`,
+    );
+
     if (hasBgm) {
-        console.log(
-            `\nCombining scene videos with background audio (${bgmPath})...`,
-        );
         const safeVol = Math.min(
-            Math.max(Number(bgmVolume) || 0.15, 0.02),
+            Math.max(Number(bgmVolume) || 0.12, 0.02),
             0.5,
         );
         const fadeOutStart = Math.max(0, duration - 2.0);
 
         const filterComplex =
-            `[0:v]fps=30,setpts=PTS-STARTPTS[vout];` +
-            `[0:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo[voice];` +
+            "[0:v]fps=30,setpts=PTS-STARTPTS[vout];" +
+            "[0:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo[voice];" +
             `[1:a]volume=${safeVol},afade=t=in:ss=0:d=1.0,afade=t=out:st=${fadeOutStart.toFixed(2)}:d=2.0,aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo[bgm];` +
-            `[voice][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]`;
+            "[voice][bgm]amix=inputs=2:duration=first:dropout_transition=2[aout]";
 
         await runFFmpeg([
             "-y",

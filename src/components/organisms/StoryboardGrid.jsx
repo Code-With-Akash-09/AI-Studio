@@ -371,12 +371,125 @@ export function StoryboardGrid({ scenes = [], video = null }) {
                                             event.target.value,
                                         )
                                     }
-                                    className="min-h-28 resize-none bg-slate-50 text-sm leading-relaxed"
+                                    className="min-h-24 resize-none bg-slate-50 text-sm leading-relaxed"
                                 />
                             </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold text-indigo-600 flex items-center gap-1.5">
+                                    <Film className="size-3.5 text-indigo-500" />
+                                    Directorial Visual Brief
+                                </Label>
+                                <Textarea
+                                    value={selectedScene?.visualBrief || ""}
+                                    onChange={(event) =>
+                                        updateSelectedScene(
+                                            "visualBrief",
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder="Describe the cinematic shot composition, subject, and atmosphere..."
+                                    className="min-h-20 resize-none bg-indigo-50/30 text-xs text-slate-800 leading-relaxed border-indigo-100"
+                                />
+                            </div>
+
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs">Duration</Label>
+                                    <Label className="text-xs">
+                                        Camera Shot
+                                    </Label>
+                                    <Select
+                                        value={
+                                            selectedScene?.cameraShot ||
+                                            "medium_shot"
+                                        }
+                                        onValueChange={(value) =>
+                                            updateSelectedScene(
+                                                "cameraShot",
+                                                value,
+                                            )
+                                        }
+                                    >
+                                        <SelectTrigger className="w-full rounded-lg text-xs capitalize">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-lg">
+                                            <SelectItem value="macro">
+                                                Macro Close-up
+                                            </SelectItem>
+                                            <SelectItem value="close_up">
+                                                Close-up
+                                            </SelectItem>
+                                            <SelectItem value="medium_shot">
+                                                Medium Shot
+                                            </SelectItem>
+                                            <SelectItem value="wide_establishing">
+                                                Wide Establishing
+                                            </SelectItem>
+                                            <SelectItem value="aerial_drone">
+                                                Aerial / Drone
+                                            </SelectItem>
+                                            <SelectItem value="pov">
+                                                First Person POV
+                                            </SelectItem>
+                                            <SelectItem value="tracking">
+                                                Tracking Shot
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">
+                                        Lighting & Mood
+                                    </Label>
+                                    <Select
+                                        value={
+                                            selectedScene?.lightingMood ||
+                                            "cinematic_warm"
+                                        }
+                                        onValueChange={(value) =>
+                                            updateSelectedScene(
+                                                "lightingMood",
+                                                value,
+                                            )
+                                        }
+                                    >
+                                        <SelectTrigger className="w-full rounded-lg text-xs capitalize">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-lg">
+                                            <SelectItem value="cinematic_warm">
+                                                Cinematic Warm
+                                            </SelectItem>
+                                            <SelectItem value="dark_mysterious">
+                                                Dark & Mysterious
+                                            </SelectItem>
+                                            <SelectItem value="golden_hour">
+                                                Golden Hour
+                                            </SelectItem>
+                                            <SelectItem value="bright_natural">
+                                                Bright Natural
+                                            </SelectItem>
+                                            <SelectItem value="neon_cyberpunk">
+                                                Neon Cyberpunk
+                                            </SelectItem>
+                                            <SelectItem value="vintage_retro">
+                                                Vintage Retro
+                                            </SelectItem>
+                                            <SelectItem value="dramatic_shadows">
+                                                Dramatic Shadows
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs">
+                                        Duration (s)
+                                    </Label>
                                     <Input
                                         type="number"
                                         min="1"
@@ -387,41 +500,30 @@ export function StoryboardGrid({ scenes = [], video = null }) {
                                                 Number(event.target.value),
                                             )
                                         }
+                                        className="text-xs"
                                     />
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label className="text-xs">
-                                        Visual type
+                                        On-Screen Highlight
                                     </Label>
-                                    <Select
+                                    <Input
                                         value={
-                                            selectedScene?.visualType || "text"
+                                            selectedScene?.onScreenHighlight ||
+                                            ""
                                         }
-                                        onValueChange={(value) =>
+                                        onChange={(event) =>
                                             updateSelectedScene(
-                                                "visualType",
-                                                value,
+                                                "onScreenHighlight",
+                                                event.target.value,
                                             )
                                         }
-                                        className={"rounded-lg"}
-                                    >
-                                        <SelectTrigger className="w-full rounded-lg!">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className={"rounded-lg"}>
-                                            <SelectItem value="text">
-                                                Text screen
-                                            </SelectItem>
-                                            <SelectItem value="image">
-                                                Image
-                                            </SelectItem>
-                                            <SelectItem value="video">
-                                                Video
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                        placeholder="e.g. 3,000 YEARS OLD"
+                                        className="text-xs font-semibold text-amber-700 bg-amber-50/40 border-amber-200"
+                                    />
                                 </div>
                             </div>
+
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Asset URL</Label>
                                 <Input
@@ -433,8 +535,30 @@ export function StoryboardGrid({ scenes = [], video = null }) {
                                         )
                                     }
                                     placeholder="Paste an image or video URL"
+                                    className="text-xs font-mono"
                                 />
                             </div>
+
+                            {selectedScene?.matchScore && (
+                                <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-2.5 space-y-1 text-xs">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-slate-500 font-medium">
+                                            Relevance Match:
+                                        </span>
+                                        <span
+                                            className={`font-bold ${selectedScene.matchScore >= 80 ? "text-emerald-600" : "text-blue-600"}`}
+                                        >
+                                            {selectedScene.matchScore}%
+                                        </span>
+                                    </div>
+                                    {selectedScene.selectionReason && (
+                                        <p className="text-[11px] text-slate-600 leading-tight">
+                                            {selectedScene.selectionReason}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="mt-auto grid grid-cols-2 gap-2 text-xs">
                                 <div className="rounded-lg border border-slate-200 p-3">
                                     <span className="block text-slate-400">

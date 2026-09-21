@@ -33,6 +33,7 @@ export async function POST(request) {
         voice,
         humanize,
         dimension,
+        visualEngine,
         bgmMood,
         bgmVolume,
         geminiApiKeys: bodyGeminiKeys,
@@ -107,6 +108,7 @@ export async function POST(request) {
             voice,
             humanize,
             dimension,
+            visualEngine,
             bgmMood,
             bgmVolume,
             userId,
@@ -139,6 +141,7 @@ export async function POST(request) {
             provider: provider || "gemini",
             language: result.language,
             voice: result.voice,
+            scenes: result.scenes || [],
             storage: "local",
         });
     } catch (error) {
