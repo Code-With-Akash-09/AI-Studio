@@ -8,16 +8,41 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-async def generate_edge_tts(text, output_file, voice, timings_file=None):
+async def generate_edge_tts(text, output_file, voice, timings_file=None, rate="+0%", pitch="+0Hz", volume="+0%"):
     import edge_tts
 
     last_error = None
     audio_chunks = []
     sentences = []
 
+    # Clean and format parameters
+    rate_str = rate if rate and (rate.startswith("+") or rate.startswith("-")) else f"{rate or '+0%'}"
+    if not rate_str.endswith("%"):
+        rate_str = f"{rate_str}%"
+    if not (rate_str.startswith("+") or rate_str.startswith("-")):
+        rate_str = f"+{rate_str}"
+
+    pitch_str = pitch if pitch and (pitch.startswith("+") or pitch.startswith("-")) else f"{pitch or '+0Hz'}"
+    if not pitch_str.endswith("Hz"):
+        pitch_str = f"{pitch_str}Hz"
+    if not (pitch_str.startswith("+") or pitch_str.startswith("-")):
+        pitch_str = f"+{pitch_str}"
+
+    volume_str = volume if volume and (volume.startswith("+") or volume.startswith("-")) else f"{volume or '+0%'}"
+    if not volume_str.endswith("%"):
+        volume_str = f"{volume_str}%"
+    if not (volume_str.startswith("+") or volume_str.startswith("-")):
+        volume_str = f"+{volume_str}"
+
     for attempt in range(3):
         try:
-            communicate = edge_tts.Communicate(text, voice)
+            communicate = edge_tts.Communicate(
+                text=text,
+                voice=voice,
+                rate=rate_str,
+                pitch=pitch_str,
+                volume=volume_str,
+            )
             attempt_audio = []
             attempt_sentences = []
 
@@ -70,7 +95,7 @@ async def generate_edge_tts(text, output_file, voice, timings_file=None):
         if sentences:
             print(f"Timings written to: {timings_file}")
 
-    print(f"Voice generated with Edge TTS ({voice}): {output_file}")
+    print(f"Voice generated with Edge TTS ({voice} | rate: {rate_str} | pitch: {pitch_str}): {output_file}")
 
 
 def generate_pyttsx3(text, output_file):
@@ -87,16 +112,19 @@ def generate_pyttsx3(text, output_file):
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: python tts.py <text> <output_file> [voice] [timings_file]")
+        print("Usage: python tts.py <text> <output_file> [voice] [timings_file] [rate] [pitch] [volume]")
         sys.exit(1)
 
     text = sys.argv[1]
     output_file = sys.argv[2]
-    voice = sys.argv[3] if len(sys.argv) > 3 else "en-US-ChristopherNeural"
-    timings_file = sys.argv[4] if len(sys.argv) > 4 else None
+    voice = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] != "" else "en-US-AndrewNeural"
+    timings_file = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] != "" and sys.argv[4] != "null" else None
+    rate = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] != "" else "+0%"
+    pitch = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] != "" else "+0Hz"
+    volume = sys.argv[7] if len(sys.argv) > 7 and sys.argv[7] != "" else "+0%"
 
     try:
-        asyncio.run(generate_edge_tts(text, output_file, voice, timings_file))
+        asyncio.run(generate_edge_tts(text, output_file, voice, timings_file, rate=rate, pitch=pitch, volume=volume))
     except Exception as e:
         print(f"Edge TTS error ({e}), falling back to pyttsx3...", file=sys.stderr)
         try:

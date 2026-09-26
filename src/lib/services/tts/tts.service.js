@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeForTTS } from "./textNormalizer.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,26 +36,30 @@ function getPythonPath() {
  * @param {string} outputFile - Path to write audio (MP3)
  * @param {string} voice - Edge TTS voice name
  * @param {string|null} timingsFile - Path to write sentence timings JSON (optional)
+ * @param {Object} [prosody] - Optional prosody settings { rate, pitch, volume }
  * @returns {Promise<void>}
  */
 export function generateVoice(
     text,
     outputFile,
-    voice = "en-US-ChristopherNeural",
+    voice = "en-US-AndrewNeural",
     timingsFile = null,
+    { rate = "+0%", pitch = "+0Hz", volume = "+0%" } = {},
 ) {
     return new Promise((resolve, reject) => {
         const pythonPath = getPythonPath();
+        const cleanText = normalizeForTTS(text);
 
         const args = [
             join(process.cwd(), "src/lib/services/tts/tts.py"),
-            text,
+            cleanText,
             outputFile,
             voice,
+            timingsFile || "null",
+            rate || "+0%",
+            pitch || "+0Hz",
+            volume || "+0%",
         ];
-        if (timingsFile) {
-            args.push(timingsFile);
-        }
 
         const python = spawn(pythonPath, args, {
             env: {
