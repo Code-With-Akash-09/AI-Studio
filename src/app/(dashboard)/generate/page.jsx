@@ -19,6 +19,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { generateVideoAction } from "../../../actions/generate.js";
 import { useSocket } from "../../../hooks/useSocket.js";
 
+const EMOTION_CONFIG = {
+    hyped: { emoji: "🔥", label: "Hyped", className: "bg-orange-50 text-orange-700" },
+    shocked: { emoji: "⚡", label: "Shocked", className: "bg-yellow-50 text-yellow-700" },
+    curious: { emoji: "🔍", label: "Curious", className: "bg-violet-50 text-violet-700" },
+    dramatic: { emoji: "🎭", label: "Dramatic", className: "bg-rose-50 text-rose-700" },
+    thoughtful: { emoji: "💭", label: "Thoughtful", className: "bg-blue-50 text-blue-700" },
+    humorous: { emoji: "😄", label: "Humorous", className: "bg-green-50 text-green-700" },
+    neutral: { emoji: "🎙️", label: "Narrating", className: "bg-slate-100 text-slate-600" },
+};
+
+const EmotionBadge = ({ emotion }) => {
+    const cfg = EMOTION_CONFIG[emotion?.toLowerCase()] ?? EMOTION_CONFIG.neutral;
+    return (
+        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-all ${cfg.className}`}>
+            {cfg.emoji} {cfg.label}
+        </span>
+    );
+};
+
 export default function GeneratePage() {
     const { socketId, lastProgress, connected } = useSocket();
 
@@ -26,6 +45,8 @@ export default function GeneratePage() {
     const [provider, setProvider] = useState("gemini");
     const [dimension, setDimension] = useState("vertical");
     const [gender, setGender] = useState("male");
+    const [vocalTone, setVocalTone] = useState("auto");
+    const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
     const [language, setLanguage] = useState("hi");
     const [visualEngine, setVisualEngine] = useState("ai_realism");
     const [geminiKey, setGeminiKey] = useState("");
@@ -42,6 +63,8 @@ export default function GeneratePage() {
 
     const videoRef = useRef(null);
 
+    const [sceneInfo, setSceneInfo] = useState(null);
+
     useEffect(() => {
         if (!lastProgress) return;
         if (lastProgress.progress !== undefined)
@@ -50,6 +73,15 @@ export default function GeneratePage() {
         if (lastProgress.error) setError(lastProgress.error);
         if (lastProgress.canResume && lastProgress.jobId)
             setResumeJobId(lastProgress.jobId);
+        if (lastProgress.emotion || lastProgress.currentScene) {
+            setSceneInfo({
+                currentScene: lastProgress.currentScene || null,
+                totalScenes: lastProgress.totalScenes || null,
+                emotion: lastProgress.emotion || "neutral",
+                speakerRole: lastProgress.speakerRole || "narrator",
+                ambientAtmosphere: lastProgress.ambientAtmosphere || "none",
+            });
+        }
     }, [lastProgress]);
 
     const handleGenerate = useCallback(
@@ -74,6 +106,8 @@ export default function GeneratePage() {
                     provider,
                     dimension,
                     gender,
+                    vocalTone,
+                    speedMultiplier,
                     visualEngine,
                     bgmMood,
                     bgmVolume,
@@ -109,6 +143,8 @@ export default function GeneratePage() {
             provider,
             dimension,
             gender,
+            vocalTone,
+            speedMultiplier,
             language,
             visualEngine,
             geminiKey,
@@ -156,6 +192,28 @@ export default function GeneratePage() {
                                     value={progress}
                                     className="h-3 bg-primary/15"
                                 />
+
+                                {/* Scene emotion + context badges */}
+                                {sceneInfo && (
+                                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                                        {sceneInfo.currentScene && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                                                <Film className="size-3" />
+                                                Scene {sceneInfo.currentScene}
+                                                {sceneInfo.totalScenes
+                                                    ? ` / ${sceneInfo.totalScenes}`
+                                                    : ""}
+                                            </span>
+                                        )}
+                                        <EmotionBadge emotion={sceneInfo.emotion} />
+                                        {sceneInfo.ambientAtmosphere !== "none" && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
+                                                🌊 {sceneInfo.ambientAtmosphere.replace(/_/g, " ")}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
                                 <p className="text-xs text-slate-500">
                                     Your script is being transformed into
                                     narration, visuals, and captions.
@@ -274,6 +332,10 @@ export default function GeneratePage() {
                         onDimensionChange={setDimension}
                         gender={gender}
                         onGenderChange={setGender}
+                        vocalTone={vocalTone}
+                        onVocalToneChange={setVocalTone}
+                        speedMultiplier={speedMultiplier}
+                        onSpeedMultiplierChange={setSpeedMultiplier}
                         provider={provider}
                         onProviderChange={setProvider}
                         language={language}

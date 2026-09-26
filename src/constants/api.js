@@ -24,5 +24,8 @@ export const ENDPOINTS = {
         USER_UPDATE: (id) => `/api/admin/users/${id}`,
         ASSETS: "/api/admin/assets",
     },
+    TTS: {
+        PREVIEW: "/api/tts/preview",
+    },
     HEALTH: "/api/health",
 };

@@ -11,7 +11,12 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { BGM_MOODS, BGM_VOLUMES } from "@/constants/audio";
+import {
+    BGM_MOODS,
+    BGM_VOLUMES,
+    VOCAL_SPEEDS,
+    VOCAL_TONES,
+} from "@/constants/audio";
 import {
     AI_PROVIDERS,
     LANGUAGES,
@@ -20,14 +25,19 @@ import {
 } from "@/constants/models";
 import {
     Clapperboard,
+    Gauge,
     Key,
+    Mic,
     Monitor,
     Music,
+    Play,
     Sliders,
     Smartphone,
     Sparkles,
-    Volume2,
+    Square,
+    Volume2
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 const DIMENSION_OPTIONS = [
     { value: "vertical", label: "9:16 Reels", Icon: Smartphone },
@@ -39,6 +49,10 @@ export function StudioSettings({
     onDimensionChange,
     gender,
     onGenderChange,
+    vocalTone = "auto",
+    onVocalToneChange,
+    speedMultiplier = 1.0,
+    onSpeedMultiplierChange,
     provider,
     onProviderChange,
     language,
@@ -56,6 +70,68 @@ export function StudioSettings({
     scriptEmpty,
     connected,
 }) {
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewPlaying, setPreviewPlaying] = useState(false);
+    const audioRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
+        };
+    }, []);
+
+    const handlePreviewVoice = async () => {
+        if (previewPlaying && audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+            setPreviewPlaying(false);
+            return;
+        }
+
+        setPreviewLoading(true);
+        try {
+            const res = await fetch("/api/tts/preview", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    language,
+                    gender,
+                    vocalTone,
+                    speedMultiplier,
+                }),
+            });
+
+            if (!res.ok) {
+                throw new Error("Preview generation failed");
+            }
+
+            const blob = await res.blob();
+            const audioUrl = URL.createObjectURL(blob);
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+
+            audio.onended = () => {
+                setPreviewPlaying(false);
+                audioRef.current = null;
+            };
+
+            audio.onerror = () => {
+                setPreviewPlaying(false);
+                audioRef.current = null;
+            };
+
+            await audio.play();
+            setPreviewPlaying(true);
+        } catch (err) {
+            console.error("Voice preview error:", err);
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
     const selectedProvider = AI_PROVIDERS.find(
         (option) => option.value === provider,
     );
@@ -65,6 +141,13 @@ export function StudioSettings({
     const selectedVisualEngine =
         VISUAL_ENGINES.find((option) => option.value === visualEngine) ||
         VISUAL_ENGINES[0];
+    const selectedTone =
+        VOCAL_TONES.find((option) => option.value === vocalTone) ||
+        VOCAL_TONES[0];
+    const selectedSpeed =
+        VOCAL_SPEEDS.find(
+            (option) => String(option.value) === String(speedMultiplier),
+        ) || VOCAL_SPEEDS[1];
     const selectedMood = BGM_MOODS.find((option) => option.value === bgmMood);
     const selectedVolume =
         BGM_VOLUMES.find(
@@ -95,11 +178,10 @@ export function StudioSettings({
                                     onClick={() => onDimensionChange(value)}
                                     variant="outline"
                                     size="default"
-                                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
-                                        dimension === value
+                                    className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${dimension === value
                                             ? "border-primary bg-primary/10 text-primary"
                                             : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                                    }`}
+                                        }`}
                                 >
                                     <Icon className="size-4" />
                                     <span>{label}</span>
@@ -108,9 +190,36 @@ export function StudioSettings({
                         </div>
                     </div>
                     <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-slate-700">
-                            Voice Type
-                        </Label>
+                        <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold text-slate-700">
+                                Voice Type &amp; Preview
+                            </Label>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={handlePreviewVoice}
+                                disabled={previewLoading}
+                                className="h-6 px-2 text-[11px] text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 flex items-center gap-1"
+                            >
+                                {previewLoading ? (
+                                    <>
+                                        <Spinner className="size-3" />
+                                        <span>Synthesizing...</span>
+                                    </>
+                                ) : previewPlaying ? (
+                                    <>
+                                        <Square className="size-3 fill-current text-rose-500" />
+                                        <span className="text-rose-600 font-medium">Stop Preview</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Play className="size-3 fill-current text-indigo-600" />
+                                        <span className="font-medium">Listen Preview</span>
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             {VOICE_GENDERS.map((g) => (
                                 <Button
@@ -119,16 +228,93 @@ export function StudioSettings({
                                     onClick={() => onGenderChange(g.value)}
                                     variant="outline"
                                     size="default"
-                                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
-                                        gender === g.value
+                                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${gender === g.value
                                             ? "border-primary bg-primary/10 text-primary"
                                             : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                                    }`}
+                                        }`}
                                 >
                                     <Volume2 className="size-3.5" />
                                     <span>{g.label}</span>
                                 </Button>
                             ))}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <Label
+                                htmlFor="vocal-tone-select"
+                                className="text-xs font-semibold text-slate-700 flex items-center gap-1"
+                            >
+                                <Mic className="size-3 text-slate-400" />
+                                <span>Voice Emotion Tone</span>
+                            </Label>
+                            <Select
+                                value={vocalTone}
+                                onValueChange={onVocalToneChange}
+                            >
+                                <SelectTrigger
+                                    id="vocal-tone-select"
+                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900"
+                                >
+                                    <SelectValue>
+                                        {selectedTone?.label || "Dynamic Emotion (AI Match)"}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className="rounded-lg!">
+                                    {VOCAL_TONES.map((t) => (
+                                        <SelectItem
+                                            key={t.value}
+                                            value={t.value}
+                                            className="rounded-lg! w-fit"
+                                        >
+                                            <div className="flex flex-col text-left">
+                                                <span className="font-medium text-xs">
+                                                    {t.label}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400">
+                                                    {t.description}
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label
+                                htmlFor="vocal-speed-select"
+                                className="text-xs font-semibold text-slate-700 flex items-center gap-1"
+                            >
+                                <Gauge className="size-3 text-slate-400" />
+                                <span>Delivery Speed</span>
+                            </Label>
+                            <Select
+                                value={String(speedMultiplier ?? 1.0)}
+                                onValueChange={(val) =>
+                                    onSpeedMultiplierChange?.(Number.parseFloat(val))
+                                }
+                            >
+                                <SelectTrigger
+                                    id="vocal-speed-select"
+                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900"
+                                >
+                                    <SelectValue>
+                                        {selectedSpeed?.label || "1.0x (Normal)"}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className="rounded-lg!">
+                                    {VOCAL_SPEEDS.map((sp) => (
+                                        <SelectItem
+                                            key={sp.value}
+                                            value={String(sp.value)}
+                                            className="rounded-lg!"
+                                        >
+                                            {sp.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
