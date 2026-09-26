@@ -38,6 +38,24 @@ export function isQuotaOrRateLimitError(error) {
 }
 
 /**
+ * Returns true for errors that indicate a bad model output (empty/invalid JSON)
+ * but may succeed on a different model or key.
+ * @param {any} error
+ * @returns {boolean}
+ */
+function isRetryableOutputError(error) {
+    if (!error) return false;
+    const msg = String(error.message || "").toLowerCase();
+    return (
+        msg.includes("empty response") ||
+        msg.includes("invalid json") ||
+        msg.includes("blocked by safety") ||
+        msg.includes("finishreason") ||
+        msg.includes("blockreason")
+    );
+}
+
+/**
  * Sleep helper for backoff delays.
  * @param {number} ms
  * @returns {Promise<void>}
@@ -173,9 +191,24 @@ export async function executeGeminiWithKeyRotation({
                         },
                     });
 
-                    const text =
-                        typeof response.text === "string" ? response.text : "";
-                    const result = parseGeminiJSON(text);
+                    // .text is a getter (string | undefined); coerce undefined → ""
+                    const rawText = response.text ?? "";
+
+                    if (!rawText) {
+                        // Surface finish reason / safety feedback to aid debugging
+                        const finishReason =
+                            response.candidates?.[0]?.finishReason ?? "UNKNOWN";
+                        const blockReason =
+                            response.promptFeedback?.blockReason ?? null;
+                        const detail = blockReason
+                            ? `blockReason=${blockReason}`
+                            : `finishReason=${finishReason}`;
+                        throw new Error(
+                            `Gemini returned an empty response (${detail}). The prompt may be too long or blocked by safety filters.`,
+                        );
+                    }
+
+                    const result = parseGeminiJSON(rawText);
 
                     console.log(
                         `[Gemini Rotator] Generation successful using model [${targetModel}] and key ${kIndex + 1}/${candidateKeys.length}.`,
@@ -197,8 +230,14 @@ export async function executeGeminiWithKeyRotation({
                             );
                             await sleep(delayMs);
                         }
+                    } else if (isRetryableOutputError(error)) {
+                        // Bad/empty output from this model — try next model in the chain
+                        console.warn(
+                            `[Gemini Rotator] Model [${targetModel}] / Key ${kIndex + 1} returned bad output, trying next model: ${error.message}`,
+                        );
+                        break; // skip remaining attempts for this model, advance model loop
                     } else {
-                        // Non-quota, non-transient error (e.g. invalid syntax/arguments)
+                        // True unrecoverable error (invalid API key, bad request shape, etc.)
                         console.error(
                             `[Gemini Rotator] Unrecoverable error on key ${kIndex + 1}:`,
                             error.message,

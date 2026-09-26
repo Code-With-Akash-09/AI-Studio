@@ -46,6 +46,8 @@ FOR EVERY SCENE PROVIDE:
 - cameraShot: one of ["close_up", "wide_establishing", "macro", "aerial_drone", "pov", "tracking", "medium_shot"]
 - lightingMood: one of ["cinematic_warm", "dark_mysterious", "bright_natural", "golden_hour", "neon_cyberpunk", "vintage_retro", "dramatic_shadows"]
 - emotion: one of ["hyped", "curious", "shocked", "humorous", "dramatic", "thoughtful", "neutral"]
+- speakerRole: one of ["narrator", "host", "expert", "character_male", "character_female"] (defaults to "narrator", or switch when dialogue/quote is present)
+- ambientAtmosphere: one of ["nature_wind", "cyber_hum", "room_ambient", "cinematic_space", "ancient_temple", "none"]
 - visualType: one of ["video", "image", "text"]
 - searchQueries: array of 2-3 specific English search terms
 - negativeKeywords: array of 2-3 terms to avoid
@@ -68,6 +70,8 @@ Return this exact JSON structure:
       "cameraShot": "macro",
       "lightingMood": "cinematic_warm",
       "emotion": "curious",
+      "speakerRole": "narrator",
+      "ambientAtmosphere": "ancient_temple",
       "visualType": "video",
       "searchQueries": ["ancient egyptian artifacts tomb", "clay jar antique archaeology", "pyramid interior torchlight"],
       "negativeKeywords": ["modern grocery supermarket", "plastic bottle", "cartoon"],
@@ -136,6 +140,23 @@ ${script}
         "dramatic_shadows",
     ];
 
+    const validSpeakerRoles = [
+        "narrator",
+        "host",
+        "expert",
+        "character_male",
+        "character_female",
+    ];
+
+    const validAmbients = [
+        "nature_wind",
+        "cyber_hum",
+        "room_ambient",
+        "cinematic_space",
+        "ancient_temple",
+        "none",
+    ];
+
     result.detectedLanguage = detectedLanguage;
     result.narrativeTopic = String(
         result.narrativeTopic || "Story Video",
@@ -157,6 +178,20 @@ ${script}
                 ? rawLighting
                 : "cinematic_warm";
 
+            const rawSpeakerRole = String(
+                scene.speakerRole || "narrator",
+            ).toLowerCase();
+            const speakerRole = validSpeakerRoles.includes(rawSpeakerRole)
+                ? rawSpeakerRole
+                : "narrator";
+
+            const rawAmbient = String(
+                scene.ambientAtmosphere || "none",
+            ).toLowerCase();
+            const ambientAtmosphere = validAmbients.includes(rawAmbient)
+                ? rawAmbient
+                : "none";
+
             return {
                 id: scene.id || index + 1,
                 narration: String(scene.narration || "").trim(),
@@ -169,6 +204,8 @@ ${script}
                 cameraShot,
                 lightingMood,
                 emotion: scene.emotion || "neutral",
+                speakerRole,
+                ambientAtmosphere,
                 visualType: String(scene.visualType || "video").toLowerCase(),
                 searchQueries:
                     Array.isArray(scene.searchQueries) &&
