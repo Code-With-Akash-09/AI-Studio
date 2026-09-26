@@ -110,11 +110,120 @@ async function generateRiser() {
     console.log("Generated riser.mp3");
 }
 
+async function generateClick() {
+    const duration = 0.08;
+    const numSamples = Math.floor(SAMPLE_RATE * duration);
+    const samples = [];
+
+    for (let i = 0; i < numSamples; i++) {
+        const t = i / SAMPLE_RATE;
+        const env = Math.exp(-60.0 * t);
+        const freq = 1800.0 + 800.0 * Math.exp(-40.0 * t);
+        const sine = Math.sin(2 * Math.PI * freq * t);
+        const pop = (Math.random() * 2 - 1) * 0.3;
+        samples.push((sine * 0.7 + pop) * env * 0.7);
+    }
+
+    const wavPath = path.join(OUT_DIR, "click.wav");
+    const mp3Path = path.join(OUT_DIR, "click.mp3");
+    writeWav(wavPath, samples);
+    await convertToMp3(wavPath, mp3Path);
+    console.log("Generated click.mp3");
+}
+
+async function generateGlitch() {
+    const duration = 0.35;
+    const numSamples = Math.floor(SAMPLE_RATE * duration);
+    const samples = [];
+
+    for (let i = 0; i < numSamples; i++) {
+        const t = i / SAMPLE_RATE;
+        const step = Math.floor(t * 30);
+        const freq = 300.0 + (step % 5) * 450.0;
+        const noise = (Math.random() * 2 - 1) * 0.5;
+        const tone = Math.sin(2 * Math.PI * freq * t) * 0.5;
+        const env = (1 - t / duration) ** 1.5;
+        samples.push((tone + noise) * env * 0.5);
+    }
+
+    const wavPath = path.join(OUT_DIR, "glitch.wav");
+    const mp3Path = path.join(OUT_DIR, "glitch.mp3");
+    writeWav(wavPath, samples);
+    await convertToMp3(wavPath, mp3Path);
+    console.log("Generated glitch.mp3");
+}
+
+async function generateChime() {
+    const duration = 0.8;
+    const numSamples = Math.floor(SAMPLE_RATE * duration);
+    const samples = [];
+
+    for (let i = 0; i < numSamples; i++) {
+        const t = i / SAMPLE_RATE;
+        const env = Math.exp(-5.0 * t);
+        const s1 = Math.sin(2 * Math.PI * 1046.5 * t); // C6
+        const s2 = Math.sin(2 * Math.PI * 1318.5 * t) * 0.7; // E6
+        const s3 = Math.sin(2 * Math.PI * 1567.98 * t) * 0.5; // G6
+        samples.push((s1 + s2 + s3) * env * 0.35);
+    }
+
+    const wavPath = path.join(OUT_DIR, "chime.wav");
+    const mp3Path = path.join(OUT_DIR, "chime.mp3");
+    writeWav(wavPath, samples);
+    await convertToMp3(wavPath, mp3Path);
+    console.log("Generated chime.mp3");
+}
+
+async function generateAmbientWind() {
+    const duration = 12.0;
+    const numSamples = Math.floor(SAMPLE_RATE * duration);
+    const samples = [];
+
+    for (let i = 0; i < numSamples; i++) {
+        const t = i / SAMPLE_RATE;
+        const lfo = 0.5 + 0.5 * Math.sin(2 * Math.PI * 0.25 * t);
+        const noise = (Math.random() * 2 - 1) * 0.25;
+        const lowRumble = Math.sin(2 * Math.PI * 65.0 * t) * 0.15;
+        samples.push((noise * lfo + lowRumble) * 0.4);
+    }
+
+    const wavPath = path.join(OUT_DIR, "ambient_wind.wav");
+    const mp3Path = path.join(OUT_DIR, "ambient_wind.mp3");
+    writeWav(wavPath, samples);
+    await convertToMp3(wavPath, mp3Path);
+    console.log("Generated ambient_wind.mp3");
+}
+
+async function generateAmbientCyber() {
+    const duration = 12.0;
+    const numSamples = Math.floor(SAMPLE_RATE * duration);
+    const samples = [];
+
+    for (let i = 0; i < numSamples; i++) {
+        const t = i / SAMPLE_RATE;
+        const drone = Math.sin(2 * Math.PI * 55.0 * t) * 0.3; // A1
+        const fifth = Math.sin(2 * Math.PI * 82.5 * t) * 0.15;
+        const pulse = Math.sin(2 * Math.PI * 110.0 * t) * (0.05 + 0.05 * Math.sin(2 * Math.PI * 1.5 * t));
+        samples.push((drone + fifth + pulse) * 0.35);
+    }
+
+    const wavPath = path.join(OUT_DIR, "ambient_cyber.wav");
+    const mp3Path = path.join(OUT_DIR, "ambient_cyber.mp3");
+    writeWav(wavPath, samples);
+    await convertToMp3(wavPath, mp3Path);
+    console.log("Generated ambient_cyber.mp3");
+}
+
 async function main() {
     await generateWhoosh();
     await generateImpact();
     await generateRiser();
-    console.log("All cinematic SFX audio files generated successfully.");
+    await generateClick();
+    await generateGlitch();
+    await generateChime();
+    await generateAmbientWind();
+    await generateAmbientCyber();
+    console.log("All cinematic SFX & Foley audio files generated successfully.");
 }
 
 main().catch(console.error);
