@@ -33,7 +33,8 @@ import {
 } from "./renderer/scenes.js";
 import { searchAssets } from "./scraper/searchAssets.js";
 import { generateVoice } from "./tts/tts.service.js";
-import { resolveVoice } from "./tts/voices.js";
+import { getEmotionProsody, resolveVoice } from "./tts/voices.js";
+import { masterVocalAudio } from "./audio/audioMastering.js";
 
 // ============================================================
 // CREATE / RENDER INDIVIDUAL SCENE
@@ -47,9 +48,12 @@ async function createScene(
         model,
         voice,
         language = "en",
+        gender = "male",
         geminiApiKeys,
         dimension = "vertical",
         visualEngine = "ai_realism",
+        vocalTone = "auto",
+        speedMultiplier = 1.0,
         excludeUrls = [],
         onProgress = () => {},
         progressStart = 20,
@@ -70,11 +74,29 @@ async function createScene(
         );
     }
 
+    const rawAudioPath = path.join(config.tempDir, `voice-raw-${index}.mp3`);
     const audioPath = path.join(config.tempDir, `voice-${index}.mp3`);
     const timingsPath = path.join(config.tempDir, `timings-${index}.json`);
 
-    console.log(`\nGenerating neural human voice (${voice})...`);
-    await generateVoice(scene.narration, audioPath, voice, timingsPath);
+    const prosody = getEmotionProsody({
+        emotion: scene.emotion,
+        vocalTone,
+        speedMultiplier,
+        isPunchline: Boolean(scene.punchline),
+    });
+
+    const activeVoice =
+        scene.speakerRole && scene.speakerRole !== "narrator"
+            ? resolveVoice({ language, gender, speakerRole: scene.speakerRole })
+            : voice;
+
+    console.log(
+        `\nGenerating neural human voice (${activeVoice} | Speaker: ${scene.speakerRole || "narrator"} | Emotion: ${scene.emotion || "neutral"} | Rate: ${prosody.rate} | Pitch: ${prosody.pitch})...`,
+    );
+    await generateVoice(scene.narration, rawAudioPath, activeVoice, timingsPath, prosody);
+
+    console.log(`Mastering vocal audio (broadcast warmth, EQ & dynamic compression)...`);
+    await masterVocalAudio(rawAudioPath, audioPath);
 
     const duration = await getAudioDuration(audioPath);
     onProgress(
@@ -371,6 +393,9 @@ async function createScene(
         visualType: asset.type,
         assetUrl: asset.url,
         narration: scene.narration,
+        emotion: scene.emotion || "neutral",
+        speakerRole: scene.speakerRole || "narrator",
+        ambientAtmosphere: scene.ambientAtmosphere || "none",
         dimension,
         visualBrief: scene.visualBrief,
         subject: scene.subject,
@@ -403,6 +428,8 @@ export async function generateVideo(script, options = {}) {
         geminiApiKeys = [],
         dimension = "vertical",
         visualEngine = "ai_realism",
+        vocalTone = "auto",
+        speedMultiplier = 1.0,
         bgmMood = "auto",
         bgmVolume = DEFAULT_BGM_VOLUME,
     } = options;
@@ -447,6 +474,8 @@ export async function generateVideo(script, options = {}) {
                 geminiApiKeys,
                 dimension: normDimension,
                 visualEngine,
+                vocalTone,
+                speedMultiplier,
                 bgmMood,
                 bgmVolume,
             },
@@ -554,6 +583,9 @@ export async function generateVideo(script, options = {}) {
                 jobId,
                 currentScene: i + 1,
                 totalScenes: scenes.length,
+                emotion: scenes[i].emotion || "neutral",
+                speakerRole: scenes[i].speakerRole || "narrator",
+                ambientAtmosphere: scenes[i].ambientAtmosphere || "none",
             });
 
             const sceneResult = await createScene(scenes[i], i + 1, {
@@ -561,9 +593,12 @@ export async function generateVideo(script, options = {}) {
                 model,
                 voice: selectedVoice,
                 language: detectedLanguage,
+                gender,
                 geminiApiKeys,
                 dimension: normDimension,
                 visualEngine,
+                vocalTone,
+                speedMultiplier,
                 excludeUrls: Array.from(usedAssetUrls),
                 onProgress,
                 progressStart: 20 + Math.floor((i / scenes.length) * 65),
