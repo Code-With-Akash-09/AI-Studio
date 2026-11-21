@@ -5,7 +5,7 @@
     "dimension": "horizontal",
     "background": "haveli_night",
     "bgm": "suspense",
-    "bgmVolume": 0.16,
+    "bgmVolume": 0.15,
     "cast": ["raazu", "golu"],
     "stage": {
         "windowGlow": 0.9

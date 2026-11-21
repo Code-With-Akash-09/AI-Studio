@@ -2,7 +2,7 @@
  * Render the sample Raaz Explain Tv dialogue to an MP4 + still frames.
  *
  * Usage (from repo root):
- *   node .scripts/animation/render-demo.mjs [sample.json] [outDir] [--vertical] [--no-tts]
+ *   node .scripts/animation/render-demo.mjs [sample.json] [outDir] [--vertical] [--no-tts] [--suffix=-v2]
  *
  * Writes only to outDir (default /workspace/anim-demo). No DB, no uploads.
  */
@@ -14,6 +14,7 @@ import { renderCharacterAnimation } from "../../src/lib/services/animation/index
 
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith("--")));
+const suffix = (args.find((a) => a.startsWith("--suffix=")) || "").slice(9);
 const positional = args.filter((a) => !a.startsWith("--"));
 const samplePath =
     positional[0] || "src/lib/services/animation/samples/haveli-mirror.json";
@@ -21,7 +22,7 @@ const outDir = path.resolve(positional[1] || "/workspace/anim-demo");
 const dimension = flags.has("--vertical") ? "vertical" : undefined;
 
 const dialogue = JSON.parse(fs.readFileSync(samplePath, "utf8"));
-const name = `${dialogue.id}${dimension === "vertical" ? "-vertical" : ""}`;
+const name = `${dialogue.id}${dimension === "vertical" ? "-vertical" : ""}${suffix}`;
 fs.mkdirSync(outDir, { recursive: true });
 
 const result = await renderCharacterAnimation(dialogue, {

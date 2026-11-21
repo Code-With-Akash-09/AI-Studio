@@ -12,7 +12,6 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
     ANIMATION_DIMENSIONS,
     ANIMATION_FLAG,
@@ -20,6 +19,8 @@ import {
     ANIMATION_SAMPLE_RATE,
 } from "../../../constants/animation.js";
 import { config } from "../../config.js";
+import { resolveBgmTrack } from "../audio/bgm.service.js";
+import { getSfxPath } from "../audio/sfx.service.js";
 import {
     amplitudeEnvelope,
     decodeAudio,
@@ -37,24 +38,11 @@ import { renderVideo } from "./renderer.js";
 import { normalizeDialogue } from "./script.js";
 import { buildTimeline } from "./timeline.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AUDIO_ASSETS = path.resolve(__dirname, "../../../assets/audio");
-
 export { CHARACTERS, LEAD_CHARACTER_IDS, getCharacter } from "./characters.js";
 export { normalizeDialogue } from "./script.js";
 
 export function isAnimationEnabled() {
     return String(process.env[ANIMATION_FLAG] || "").toLowerCase() === "true";
-}
-
-async function loadAsset(rel, sr) {
-    const file = path.join(AUDIO_ASSETS, rel);
-    if (!fs.existsSync(file)) return null;
-    try {
-        return await decodeAudio(file, sr);
-    } catch {
-        return null;
-    }
 }
 
 async function prepareLineAudio(dialogue, { tts, cacheDir, fps, sr, onLog }) {
@@ -88,53 +76,137 @@ async function prepareLineAudio(dialogue, { tts, cacheDir, fps, sr, onLog }) {
     return result;
 }
 
+/** Same gains the pipeline's sfx.service cue table uses (whoosh 0.22, impact 0.28, riser 0.18). */
+const SFX_GAIN = { whoosh: 0.22, impact: 0.3, riser: 0.2, boing: 0.55 };
+const SFX_PRIORITY = { impact: 3, boing: 2, whoosh: 1 };
+/** Any cue starting within this window after another (non-riser) cue is softened. */
+const STACK_WINDOW = 0.5;
+const STACK_ATTENUATION = 0.55;
+/** BGM ducking under dialogue (pipeline mixes flat; ducking keeps lines clear). */
+const DUCK_LEVEL = 0.55;
+const DUCK_ATTACK = 0.12;
+const DUCK_RELEASE = 0.35;
+const LOOP_CROSSFADE = 0.5;
+
+/** Make a looped BGM seamless with a short crossfade at the seam. */
+function makeSeamlessLoop(bgm, sr) {
+    const xf = Math.min(
+        Math.floor(LOOP_CROSSFADE * sr),
+        Math.floor(bgm.length / 4),
+    );
+    const loopLen = bgm.length - xf;
+    const out = new Float32Array(loopLen);
+    for (let j = 0; j < loopLen; j++) {
+        if (j < xf) {
+            const a = j / xf;
+            out[j] = bgm[j] * a + bgm[loopLen + j] * (1 - a);
+        } else {
+            out[j] = bgm[j];
+        }
+    }
+    return out;
+}
+
+/** Smoothed per-100Hz ducking gain curve. */
+function duckingCurve(events, duration) {
+    const rate = 100;
+    const steps = Math.ceil(duration * rate) + 1;
+    const curve = new Float32Array(steps);
+    let g = 1;
+    for (let k = 0; k < steps; k++) {
+        const t = k / rate;
+        const speaking = events.some(
+            (e) => t >= e.start - 0.05 && t < e.end + 0.05,
+        );
+        const target = speaking ? DUCK_LEVEL : 1;
+        const tau = target < g ? DUCK_ATTACK : DUCK_RELEASE;
+        g += (target - g) * (1 - Math.exp(-1 / (rate * tau)));
+        curve[k] = g;
+    }
+    return { curve, rate };
+}
+
+async function loadFile(file, sr) {
+    if (!file || !fs.existsSync(file)) return null;
+    try {
+        return await decodeAudio(file, sr);
+    } catch {
+        return null;
+    }
+}
+
 async function mixSoundtrack(timeline, lineAudio, sr) {
     const { dialogue, events, duration } = timeline;
     const total = new Float32Array(Math.ceil(duration * sr));
+    const used = { bgm: null, sfx: {} };
 
     events.forEach((ev, i) => {
         if (lineAudio[i].samples)
             mixInto(total, lineAudio[i].samples, ev.start, sr, 1);
     });
 
-    const boing = synthBoing(sr);
-    const riser = await loadAsset("sfx/riser.mp3", sr);
-    const impact = await loadAsset("sfx/impact.mp3", sr);
+    // SFX from the system library (src/assets/audio/sfx via sfx.service) + synthesized boing
+    const buffers = { boing: synthBoing(sr) };
+    for (const type of ["whoosh", "riser", "impact"]) {
+        const file = getSfxPath(type);
+        buffers[type] = await loadFile(file, sr);
+        if (buffers[type]) used.sfx[type] = file;
+    }
+    const hits = timeline.sfx.filter(
+        (c) => c.type !== "riser" && buffers[c.type],
+    );
+    const mixed = [];
     for (const cue of timeline.sfx) {
-        if (cue.type === "boing") mixInto(total, boing, cue.time, sr, 0.8);
-        if (cue.type === "riser" && riser)
-            mixInto(
-                total,
-                riser.subarray(0, Math.floor(sr * 1.2)),
-                cue.time,
-                sr,
-                0.35,
-            );
-        if (cue.type === "impact" && impact)
-            mixInto(total, impact, cue.time, sr, 0.55);
+        const buf = buffers[cue.type];
+        if (!buf) continue;
+        let gain = SFX_GAIN[cue.type] ?? 0.2;
+        if (cue.type !== "riser") {
+            // Soften a cue when a more important hit (or an earlier equal one) is close by.
+            const p = SFX_PRIORITY[cue.type] ?? 1;
+            const crowded = hits.some((o) => {
+                if (o === cue || Math.abs(o.time - cue.time) >= STACK_WINDOW)
+                    return false;
+                const op = SFX_PRIORITY[o.type] ?? 1;
+                return op > p || (op === p && o.time < cue.time);
+            });
+            if (crowded) gain *= STACK_ATTENUATION;
+        }
+        mixInto(total, buf, cue.time, sr, gain);
+        mixed.push({ ...cue, gain: Math.round(gain * 1000) / 1000 });
     }
 
-    if (dialogue.bgm) {
-        const bgm = await loadAsset(`bgm/${dialogue.bgm}.mp3`, sr);
-        if (bgm?.length) {
-            const fadeIn = sr * 1;
-            const fadeOut = sr * 1.5;
-            for (let i = 0; i < total.length; i++) {
-                const t = i / sr;
-                const speaking = events.some((e) => t >= e.start && t < e.end);
-                let g = dialogue.bgmVolume * (speaking ? 0.6 : 1);
-                if (i < fadeIn) g *= i / fadeIn;
-                if (i > total.length - fadeOut)
-                    g *= (total.length - i) / fadeOut;
-                total[i] += bgm[i % bgm.length] * g;
-            }
+    // Background music resolved exactly like the pipeline (bgm.service)
+    const bgmTrack = resolveBgmTrack({
+        requestedMood: dialogue.bgm || "none",
+        detectedMood: "suspense",
+        volume: dialogue.bgmVolume,
+    });
+    const bgmRaw = await loadFile(bgmTrack?.trackPath, sr);
+    if (bgmTrack && bgmRaw?.length) {
+        used.bgm = { ...bgmTrack };
+        const loop = makeSeamlessLoop(bgmRaw, sr);
+        const { curve, rate } = duckingCurve(events, duration);
+        // pipeline fades: 1.0s in, 2.0s out
+        const fadeIn = sr * 1.0;
+        const fadeOut = sr * 2.0;
+        for (let i = 0; i < total.length; i++) {
+            const pos = (i / sr) * rate;
+            const k = Math.floor(pos);
+            const duck =
+                curve[k] +
+                (curve[Math.min(k + 1, curve.length - 1)] - curve[k]) *
+                    (pos - k);
+            let g = bgmTrack.volume * duck;
+            if (i < fadeIn) g *= i / fadeIn;
+            if (i > total.length - fadeOut) g *= (total.length - i) / fadeOut;
+            total[i] += loop[i % loop.length] * g;
         }
     }
 
     // soft limiter
     for (let i = 0; i < total.length; i++)
         total[i] = Math.tanh(total[i] * 1.1) / Math.tanh(1.1);
-    return total;
+    return { samples: total, used, cues: mixed };
 }
 
 /**
@@ -183,7 +255,10 @@ export async function renderCharacterAnimation(input, opts = {}) {
     onProgress(25, "Mixing dialogue, SFX and BGM...");
     const soundtrack = await mixSoundtrack(timeline, lineAudio, sr);
     const audioPath = path.join(workDir, "soundtrack.wav");
-    writeWav(audioPath, soundtrack, sr);
+    writeWav(audioPath, soundtrack.samples, sr);
+    onLog(
+        `Audio: BGM ${soundtrack.used.bgm ? `${soundtrack.used.bgm.mood} @ ${soundtrack.used.bgm.volume}` : "none"}, ${timeline.transitions.length} transitions, ${soundtrack.cues.length} SFX cues`,
+    );
 
     const { ass, captions } = buildDialogueAss(timeline);
     const assPath = path.join(workDir, "dialogue.ass");
@@ -214,6 +289,12 @@ export async function renderCharacterAnimation(input, opts = {}) {
         captions,
         usedTts: placeholderLines < lineAudio.length,
         placeholderLines,
+        audio: {
+            bgm: soundtrack.used.bgm,
+            sfxFiles: soundtrack.used.sfx,
+            cues: soundtrack.cues,
+        },
+        transitions: timeline.transitions,
         frames: stats.totalFrames,
         uniqueFrames: stats.rasterized,
         events: timeline.events.map((e) => ({

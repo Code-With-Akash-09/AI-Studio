@@ -12,6 +12,10 @@ const INTRO = 0.6;
 const OUTRO = 1.2;
 const REACTION_MIN = 1.1;
 const CAMERA_EASE = 0.4;
+/** Camera moves start this long before the next line so the switch (and its whoosh) lands in the pause. */
+const CAMERA_LEAD = 0.3;
+/** Whoosh is placed slightly before the switch (pipeline uses -0.2s for scene cuts). */
+const WHOOSH_LEAD = 0.15;
 const FLASH_DUR = 0.45;
 
 /**
@@ -43,6 +47,33 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
     });
     const duration = cursor + OUTRO;
 
+    // Screen switches: every camera re-frame or background change is a transition.
+    const transitions = [];
+    let prevKey = "wide";
+    let prevBg = dialogue.background;
+    events.forEach((ev, i) => {
+        const key = cameraKey(ev);
+        const bg = ev.background || prevBg;
+        const sceneChange = bg !== prevBg;
+        ev.bg = bg;
+        ev.camStart = ev.start;
+        ev.sceneCut = sceneChange;
+        if (key !== prevKey || sceneChange) {
+            const prev = events[i - 1];
+            const gapStart = prev ? (prev.reactionEnd ?? prev.end) : 0.1;
+            ev.camStart = Math.max(gapStart, ev.start - CAMERA_LEAD);
+            transitions.push({
+                time: ev.camStart,
+                kind: sceneChange ? "scene" : "camera",
+                from: prevKey,
+                to: key,
+                line: ev.index,
+            });
+        }
+        prevKey = key;
+        prevBg = bg;
+    });
+
     // Character placement
     const actors = {};
     dialogue.cast.forEach((id, slot) => {
@@ -63,12 +94,17 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
     });
 
     // SFX cues
-    const sfx = [];
+    const sfx = transitions.map((tr) => ({
+        type: "whoosh",
+        time: Math.max(0, tr.time - WHOOSH_LEAD),
+        transition: tr.kind,
+    }));
     for (const ev of events) {
         if (ev.reaction?.sfx)
             sfx.push({ type: ev.reaction.sfx, time: ev.reactionStart + 0.05 });
         if (ev.beat === "reveal") {
-            sfx.push({ type: "riser", time: Math.max(0, ev.start - 1.2) });
+            // riser builds into the switch, impact lands on the flash
+            sfx.push({ type: "riser", time: Math.max(0, ev.camStart - 1.0) });
             sfx.push({ type: "impact", time: ev.start });
         }
     }
@@ -79,7 +115,8 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
         events,
         duration,
         actors,
-        sfx,
+        sfx: sfx.sort((a, b) => a.time - b.time),
+        transitions,
         fps,
         width,
         height,
@@ -140,6 +177,12 @@ function cameraTarget(timeline, ev) {
     }
 }
 
+function cameraKey(ev) {
+    if (ev.camera === "speaker") return `speaker:${ev.speaker}`;
+    if (ev.camera === "listener") return `listener:${ev.listenerId}`;
+    return ev.camera;
+}
+
 /** Clamp the camera so zoomed frames never show outside the stage. */
 function clampCamera(cam, layout) {
     const halfW = layout.width / (2 * cam.s);
@@ -188,11 +231,25 @@ export function frameState(timeline, t, frameIndex) {
     stage.beam = beam;
     stage.mirrorGlint = glint;
 
-    // Camera with easing from previous event's framing
-    const prev = idx > 0 ? events[idx - 1] : null;
+    // Camera: eases from the previous framing, starting at the line's camStart
+    // (scene/background changes are hard cuts).
+    let camIdx = -1;
+    for (let i = events.length - 1; i >= 0; i--) {
+        if (t >= events[i].camStart) {
+            camIdx = i;
+            break;
+        }
+    }
+    const camEv = camIdx >= 0 ? events[camIdx] : null;
+    const prev = camIdx > 0 ? events[camIdx - 1] : null;
     const from = cameraTarget(timeline, prev);
-    const to = cameraTarget(timeline, ev);
-    const k = ev ? smooth((t - ev.start) / CAMERA_EASE) : 1;
+    const to = cameraTarget(timeline, camEv);
+    const k = !camEv
+        ? 1
+        : camEv.sceneCut
+          ? 1
+          : smooth((t - camEv.camStart) / CAMERA_EASE);
+    const background = camEv?.bg || timeline.dialogue.background;
     let camera = clampCamera(
         {
             s: from.s + (to.s - from.s) * k,
@@ -263,5 +320,5 @@ export function frameState(timeline, t, frameIndex) {
         return { actor, state };
     });
 
-    return { t, ev, stage, camera, shake, flash, chars };
+    return { t, ev, stage, camera, shake, flash, chars, background };
 }

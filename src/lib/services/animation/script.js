@@ -23,6 +23,7 @@
  *     "reaction": { "expression": "suspicious", "pose": "hips", "text": "धक-धक!", "sfx": "boing" },
  *     "camera": "wide" | "speaker" | "listener" | "reveal",
  *     "stage": { "windowGlow": 1 },        // background state from this line on
+ *     "background": "plain",               // optional scene/background switch (cut + whoosh)
  *     "pauseAfter": 0.35
  *   }]
  * }
@@ -128,6 +129,9 @@ export function normalizeDialogue(input) {
                 line.stage && typeof line.stage === "object"
                     ? line.stage
                     : null,
+            background: BACKGROUND_IDS.includes(line.background)
+                ? line.background
+                : null,
             pauseAfter: Math.min(
                 Math.max(Number(line.pauseAfter ?? 0.35) || 0, 0),
                 3,

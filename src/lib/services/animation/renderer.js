@@ -29,8 +29,9 @@ export function buildFrameSvg(timeline, frame) {
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`;
     svg += `<defs><radialGradient id="vignette" cx="0.5" cy="0.5" r="0.75"><stop offset="0.6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.55"/></radialGradient></defs>`;
     svg += `<g transform="${camTransform}">`;
-    svg += renderBackground(dialogue.background, layout, frame.stage);
-    if (dialogue.background === "haveli_night") {
+    const background = frame.background || dialogue.background;
+    svg += renderBackground(background, layout, frame.stage);
+    if (background === "haveli_night") {
         svg += renderRevealBeam(layout, frame.stage.beam);
     }
     for (const { actor, state } of frame.chars) {
