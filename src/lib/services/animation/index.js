@@ -16,6 +16,8 @@ import {
     ANIMATION_DIMENSIONS,
     ANIMATION_FLAG,
     ANIMATION_FPS,
+    ANIMATION_OUTPUT_FPS,
+    ANIME_FPS,
     ANIMATION_SAMPLE_RATE,
 } from "../../../constants/animation.js";
 import { config } from "../../config.js";
@@ -225,7 +227,11 @@ export async function renderCharacterAnimation(input, opts = {}) {
         dialogue.dimension =
             opts.dimension === "vertical" ? "vertical" : "horizontal";
     const { width, height } = ANIMATION_DIMENSIONS[dialogue.dimension];
-    const fps = opts.fps || ANIMATION_FPS;
+    if (opts.style) dialogue.style = opts.style === "anime" ? "anime" : "flat";
+    const anime = dialogue.style === "anime";
+    const fps = opts.fps || (anime ? ANIME_FPS : ANIMATION_FPS);
+    const outputFps =
+        opts.outputFps || (anime ? ANIME_FPS : ANIMATION_OUTPUT_FPS);
     const sr = ANIMATION_SAMPLE_RATE;
     const onProgress = opts.onProgress || (() => {});
     const onLog = (msg) => console.log(`[Animation] ${msg}`);
@@ -269,6 +275,7 @@ export async function renderCharacterAnimation(input, opts = {}) {
         audioPath,
         assPath,
         outputPath,
+        outputFps,
         onProgress: (p, msg) => onProgress(30 + Math.round(p * 65), msg),
     });
     onProgress(100, "Animation ready.");
@@ -285,6 +292,8 @@ export async function renderCharacterAnimation(input, opts = {}) {
         width,
         height,
         fps,
+        outputFps,
+        style: dialogue.style,
         dimension: dialogue.dimension,
         captions,
         usedTts: placeholderLines < lineAudio.length,
@@ -303,6 +312,7 @@ export async function renderCharacterAnimation(input, opts = {}) {
             start: e.start,
             end: e.end,
             beat: e.beat,
+            camera: e.camera,
         })),
     };
 }
@@ -322,6 +332,8 @@ export async function renderDialogueScene(
         dimension,
         tts,
         onProgress,
+        // pipeline scenes are concatenated at 30fps by combineScenes()
+        outputFps: ANIMATION_OUTPUT_FPS,
     });
     return {
         id: input.id || `anim-${index}`,

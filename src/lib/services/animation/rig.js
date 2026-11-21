@@ -89,7 +89,7 @@ export function getExpressionPreset(expression) {
 // Geometry helpers
 // ------------------------------------------------------------
 
-function anchors(rig) {
+export function anchors(rig) {
     const hipY = -rig.legH;
     const shoulderY = hipY - rig.torsoH;
     const headCY = shoulderY - rig.headR * 0.78;
@@ -98,7 +98,7 @@ function anchors(rig) {
 }
 
 /** Quadratic path from a → c that passes through b (the elbow). */
-function limbPath(a, b, c) {
+export function limbPath(a, b, c) {
     const cx = 2 * b[0] - (a[0] + c[0]) / 2;
     const cy = 2 * b[1] - (a[1] + c[1]) / 2;
     return `M ${n(a[0])} ${n(a[1])} Q ${n(cx)} ${n(cy)} ${n(c[0])} ${n(c[1])}`;
@@ -116,7 +116,7 @@ function strokeTwice(d, width, color, outline) {
 // ------------------------------------------------------------
 
 /** Returns world-space [shoulder, elbow, hand] for the given side (+1 front/right, -1 back/left). */
-function armPoints(pose, side, rig, a) {
+export function armPoints(pose, side, rig, a) {
     const s = [side * a.shoulderX, a.shoulderY + 26];
     const sx = a.shoulderX;
     const R = rig.headR;

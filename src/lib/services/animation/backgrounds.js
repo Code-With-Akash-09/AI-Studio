@@ -31,7 +31,7 @@ export function getStageLayout(width, height) {
 }
 
 /** Window/mirror anchors exposed for overlays (light beam on reveal). */
-function haveliAnchors(layout) {
+export function haveliAnchors(layout) {
     const { cx, w, h } = layout.haveli;
     const base = layout.horizonY + 10;
     const top = base - h;
@@ -57,7 +57,7 @@ function stars(layout, t) {
     return svg;
 }
 
-function haveli(layout, state) {
+export function haveli(layout, state) {
     const { cx, w, h } = layout.haveli;
     const A = haveliAnchors(layout);
     const left = cx - w / 2;

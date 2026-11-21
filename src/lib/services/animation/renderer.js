@@ -3,12 +3,15 @@
  * Identical consecutive frames are rasterized once and reused.
  */
 import { spawn } from "node:child_process";
+import os from "node:os";
+import { Worker } from "node:worker_threads";
 import { once } from "node:events";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Resvg } from "@resvg/resvg-js";
 import { ANIMATION_OUTPUT_FPS } from "../../../constants/animation.js";
 import { getFFmpegPath } from "../../utils/ffmpeg.js";
+import { buildAnimeFrameSvg } from "./anime/animeFrame.js";
 import { renderBackground, renderRevealBeam } from "./backgrounds.js";
 import { renderCharacter } from "./rig.js";
 import { frameState } from "./timeline.js";
@@ -46,6 +49,35 @@ export function buildFrameSvg(timeline, frame) {
     return svg;
 }
 
+/** Pool of resvg workers; results are returned in submission order. */
+function createRasterPool(size) {
+    const workers = Array.from(
+        { length: size },
+        () => new Worker(new URL("./rasterWorker.js", import.meta.url)),
+    );
+    const pending = new Map();
+    let next = 0;
+    for (const w of workers) {
+        w.on("message", ({ id, png }) => {
+            pending.get(id)?.(
+                Buffer.from(png.buffer, png.byteOffset, png.byteLength),
+            );
+            pending.delete(id);
+        });
+    }
+    return {
+        submit(svg) {
+            const id = next++;
+            const worker = workers[id % size];
+            return new Promise((resolve) => {
+                pending.set(id, resolve);
+                worker.postMessage({ id, svg });
+            });
+        },
+        close: () => Promise.all(workers.map((w) => w.terminate())),
+    };
+}
+
 export function rasterize(svg) {
     return new Resvg(svg, { font: { loadSystemFonts: false } })
         .render()
@@ -56,19 +88,33 @@ function ffmpegPathArg(p) {
     return p.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
 }
 
+function frameSvg(timeline, frame, index) {
+    return timeline.dialogue.style === "anime"
+        ? buildAnimeFrameSvg(timeline, frame, index)
+        : buildFrameSvg(timeline, frame);
+}
+
 /**
  * Render the whole timeline to an MP4.
+ * Frames are rasterized in a worker pool (resvg) and piped to ffmpeg in order.
  * @param {object} timeline
- * @param {{ audioPath: string, assPath: string|null, outputPath: string, onProgress?: Function }} opts
+ * @param {{ audioPath: string, assPath: string|null, outputPath: string, outputFps?: number, workers?: number, onProgress?: Function }} opts
  */
 export async function renderVideo(
     timeline,
-    { audioPath, assPath, outputPath, onProgress = () => {} },
+    {
+        audioPath,
+        assPath,
+        outputPath,
+        outputFps = ANIMATION_OUTPUT_FPS,
+        workers = Math.max(1, Math.min(6, os.cpus().length - 2)),
+        onProgress = () => {},
+    },
 ) {
     const { fps, duration } = timeline;
     const totalFrames = Math.ceil(duration * fps);
 
-    let vf = `fps=${ANIMATION_OUTPUT_FPS}`;
+    let vf = `fps=${outputFps}`;
     if (assPath) {
         vf += `,ass=filename='${ffmpegPathArg(assPath)}':fontsdir='${ffmpegPathArg(FONTS_DIR)}'`;
     }
@@ -99,9 +145,9 @@ export async function renderVideo(
         "-preset",
         "veryfast",
         "-crf",
-        "20",
+        "19",
         "-r",
-        String(ANIMATION_OUTPUT_FPS),
+        String(outputFps),
         "-c:a",
         "aac",
         "-b:a",
@@ -131,23 +177,35 @@ export async function renderVideo(
         );
     });
 
+    const pool = createRasterPool(workers);
+    const window = workers * 3;
+    const inflight = [];
     let lastSvg = "";
-    let lastPng = null;
+    let lastPromise = null;
     let rasterized = 0;
-    for (let i = 0; i < totalFrames; i++) {
-        const t = i / fps;
-        const frame = frameState(timeline, t, i);
-        const svg = buildFrameSvg(timeline, frame);
-        if (svg !== lastSvg) {
-            lastPng = rasterize(svg);
-            lastSvg = svg;
-            rasterized++;
-        }
-        if (!proc.stdin.write(lastPng)) {
+    const flushOne = async () => {
+        const png = await inflight.shift();
+        if (!proc.stdin.write(png)) {
             await Promise.race([once(proc.stdin, "drain"), done]);
         }
-        if (i % fps === 0)
-            onProgress(i / totalFrames, `Frame ${i}/${totalFrames}`);
+    };
+    try {
+        for (let i = 0; i < totalFrames; i++) {
+            const frame = frameState(timeline, i / fps, i);
+            const svg = frameSvg(timeline, frame, i);
+            if (svg !== lastSvg) {
+                lastPromise = pool.submit(svg);
+                lastSvg = svg;
+                rasterized++;
+            }
+            inflight.push(lastPromise);
+            if (inflight.length >= window) await flushOne();
+            if (i % fps === 0)
+                onProgress(i / totalFrames, `Frame ${i}/${totalFrames}`);
+        }
+        while (inflight.length) await flushOne();
+    } finally {
+        await pool.close();
     }
     proc.stdin.end();
     await done;

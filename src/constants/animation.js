@@ -53,4 +53,10 @@ export const VISEMES = ["X", "A", "B", "C", "O"];
 
 export const BEATS = ["humor", "reveal"];
 
-export const CAMERAS = ["wide", "speaker", "listener", "reveal"];
+export const CAMERAS = ["wide", "speaker", "listener", "reveal", "closeup"];
+
+/** Render styles: "flat" (original rig) or "anime" (cel-shaded rig + FX). */
+export const STYLES = ["flat", "anime"];
+
+/** Anime style animates at 24fps (on ones). */
+export const ANIME_FPS = 24;

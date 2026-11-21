@@ -77,6 +77,17 @@ export const CHARACTERS = {
             blush: false,
             prop: "magnifier",
         },
+        anime: {
+            hairStyle: "spiky",
+            hair: "#2A2350",
+            hairHighlight: "#6A5FB8",
+            iris: "#2FB3A8",
+            irisDark: "#0E4A52",
+            line: "#1B1530",
+            innerShirt: "#F3EBDD",
+            coatLength: 0.62,
+            glasses: "round",
+        },
     },
 
     golu: {
@@ -146,6 +157,17 @@ export const CHARACTERS = {
             blush: true,
             prop: null,
         },
+        anime: {
+            hairStyle: "tuft",
+            hair: "#2B1A12",
+            hairHighlight: "#8A5636",
+            iris: "#B8742E",
+            irisDark: "#4A2810",
+            line: "#2A1812",
+            innerShirt: "#FFE3B8",
+            coatLength: 0,
+            glasses: null,
+        },
     },
 
     // Optional secondary character (not required for v1 episodes).
@@ -207,6 +229,17 @@ export const CHARACTERS = {
             blush: true,
             prop: null,
             saree: true,
+        },
+        anime: {
+            hairStyle: "bun",
+            hair: "#E9E4F0",
+            hairHighlight: "#FFFFFF",
+            iris: "#7A5230",
+            irisDark: "#3A2210",
+            line: "#2A1830",
+            innerShirt: "#E8C547",
+            coatLength: 0,
+            glasses: "small",
         },
     },
 };

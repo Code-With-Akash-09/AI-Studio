@@ -2,7 +2,7 @@
  * Render the sample Raaz Explain Tv dialogue to an MP4 + still frames.
  *
  * Usage (from repo root):
- *   node .scripts/animation/render-demo.mjs [sample.json] [outDir] [--vertical] [--no-tts] [--suffix=-v2]
+ *   node .scripts/animation/render-demo.mjs [sample.json] [outDir] [--vertical] [--no-tts] [--suffix=-v2] [--name=anime-v1]
  *
  * Writes only to outDir (default /workspace/anim-demo). No DB, no uploads.
  */
@@ -15,6 +15,7 @@ import { renderCharacterAnimation } from "../../src/lib/services/animation/index
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith("--")));
 const suffix = (args.find((a) => a.startsWith("--suffix=")) || "").slice(9);
+const nameFlag = (args.find((a) => a.startsWith("--name=")) || "").slice(7);
 const positional = args.filter((a) => !a.startsWith("--"));
 const samplePath =
     positional[0] || "src/lib/services/animation/samples/haveli-mirror.json";
@@ -22,7 +23,9 @@ const outDir = path.resolve(positional[1] || "/workspace/anim-demo");
 const dimension = flags.has("--vertical") ? "vertical" : undefined;
 
 const dialogue = JSON.parse(fs.readFileSync(samplePath, "utf8"));
-const name = `${dialogue.id}${dimension === "vertical" ? "-vertical" : ""}${suffix}`;
+const name =
+    nameFlag ||
+    `${dialogue.id}${dimension === "vertical" ? "-vertical" : ""}${suffix}`;
 fs.mkdirSync(outDir, { recursive: true });
 
 const result = await renderCharacterAnimation(dialogue, {
@@ -46,6 +49,8 @@ const picks = [
     ["02-humor-beat", humor ? humor.end + 0.45 : result.duration * 0.4],
     ["03-reveal", reveal ? reveal.start + 1.0 : result.duration * 0.75],
 ];
+const closeup = result.events.find((e) => e.camera === "closeup");
+if (closeup) picks.push(["04-closeup", closeup.start + 0.6]);
 for (const [label, t] of picks) {
     const out = path.join(stillsDir, `${name}-${label}.png`);
     spawnSync(getFFmpegPath(), [

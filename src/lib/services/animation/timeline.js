@@ -166,6 +166,14 @@ function cameraTarget(timeline, ev) {
                 actors[ev.camera === "speaker" ? ev.speaker : ev.listenerId];
             return { s: 1.3, x: a.x, y: a.headY + layout.height * 0.12 };
         }
+        case "closeup": {
+            const a = actors[ev.speaker];
+            return {
+                s: layout.vertical ? 1.7 : 1.95,
+                x: a.x,
+                y: a.headY + layout.height * 0.05,
+            };
+        }
         case "reveal":
             return {
                 s: 1.4,
@@ -244,20 +252,27 @@ export function frameState(timeline, t, frameIndex) {
     const prev = camIdx > 0 ? events[camIdx - 1] : null;
     const from = cameraTarget(timeline, prev);
     const to = cameraTarget(timeline, camEv);
+    const anime = timeline.dialogue.style === "anime";
+    // Anime style uses hard cuts (with speed lines); flat style eases.
     const k = !camEv
         ? 1
-        : camEv.sceneCut
+        : camEv.sceneCut || anime
           ? 1
           : smooth((t - camEv.camStart) / CAMERA_EASE);
     const background = camEv?.bg || timeline.dialogue.background;
-    let camera = clampCamera(
-        {
-            s: from.s + (to.s - from.s) * k,
-            x: from.x + (to.x - from.x) * k,
-            y: from.y + (to.y - from.y) * k,
-        },
-        layout,
-    );
+    const raw = {
+        s: from.s + (to.s - from.s) * k,
+        x: from.x + (to.x - from.x) * k,
+        y: from.y + (to.y - from.y) * k,
+    };
+    if (anime) {
+        // slow handheld drift + push-in so parallax layers keep moving
+        const since = camEv ? t - camEv.camStart : t;
+        raw.s *= 1.03 + Math.min(since, 6) * 0.006;
+        raw.x += Math.sin(t * 0.21) * layout.width * 0.012;
+        raw.y += Math.sin(t * 0.17 + 1) * layout.height * 0.006;
+    }
+    let camera = clampCamera(raw, layout);
     let shake = [0, 0];
     if (ev?.beat === "humor" && ev.reactionStart !== null) {
         const since = t - ev.reactionStart;
@@ -320,5 +335,59 @@ export function frameState(timeline, t, frameIndex) {
         return { actor, state };
     });
 
-    return { t, ev, stage, camera, shake, flash, chars, background };
+    // Anime FX flags
+    const fx = { focus: null, speed: 0, impact: false, letterbox: 0 };
+    if (anime && camEv) {
+        const cutAge = t - camEv.camStart;
+        if (camIdx > 0 && cutAge < 0.2 && !camEv.sceneCut)
+            fx.speed = 1 - cutAge / 0.2;
+        if (["closeup", "reveal"].includes(camEv.camera))
+            fx.letterbox = Math.min(1, cutAge / 0.25);
+    }
+    if (anime && ev) {
+        const speakerActor = actors[ev.speaker];
+        const listenerActor = actors[ev.listenerId];
+        const inReaction =
+            ev.reactionStart !== null &&
+            t >= ev.reactionStart &&
+            t < ev.reactionEnd;
+        if (inReaction && ev.beat === "humor") {
+            fx.focus = {
+                x: listenerActor.x,
+                y: listenerActor.headY + layout.height * 0.06,
+                strength: 0.75,
+            };
+        } else if (
+            t < ev.end + 0.2 &&
+            (ev.camera === "closeup" ||
+                ["shocked", "scared"].includes(ev.expression))
+        ) {
+            fx.focus = {
+                x: speakerActor.x,
+                y: speakerActor.headY + layout.height * 0.06,
+                strength: ev.camera === "closeup" ? 0.9 : 0.6,
+            };
+        }
+        if (
+            (ev.beat === "reveal" || ev.expression === "shocked") &&
+            t >= ev.start &&
+            t - ev.start < (ev.beat === "reveal" ? 0.17 : 0.09)
+        ) {
+            fx.impact = true;
+        }
+        for (const c of chars) {
+            if (
+                c.actor.character.anime?.glasses &&
+                c.actor.id === ev.speaker &&
+                ev.beat === "reveal"
+            ) {
+                c.state.glint = Math.max(
+                    0,
+                    1 - Math.abs(t - ev.start - 0.35) / 0.45,
+                );
+            }
+        }
+    }
+
+    return { t, ev, stage, camera, shake, flash, chars, background, fx };
 }

@@ -6,6 +6,7 @@
  *   "title": "Haveli ki raat wali roshni",
  *   "language": "hi",
  *   "dimension": "horizontal" | "vertical",
+ *   "style": "flat" | "anime",
  *   "background": "haveli_night",
  *   "bgm": "suspense" | null,
  *   "bgmVolume": 0.14,
@@ -31,6 +32,7 @@
 import {
     BEATS,
     CAMERAS,
+    STYLES,
     EXPRESSIONS,
     EXPRESSION_ALIASES,
     POSES,
@@ -152,6 +154,7 @@ export function normalizeDialogue(input) {
             Math.max(Number(input.bgmVolume ?? 0.14) || 0.14, 0),
             0.5,
         ),
+        style: STYLES.includes(input.style) ? input.style : "flat",
         cast,
         stage:
             input.stage && typeof input.stage === "object" ? input.stage : {},
