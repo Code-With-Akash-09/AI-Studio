@@ -8,12 +8,15 @@
         "start": "NODE_ENV=production node server.js",
         "lint": "biome check",
         "format": "biome format --write",
-        "dev:next": "next dev"
+        "dev:next": "next dev",
+        "anim:demo": "node .scripts/animation/render-demo.mjs",
+        "anim:refs": "node .scripts/animation/render-refs.mjs"
     },
     "dependencies": {
         "@anthropic-ai/sdk": "^0.124.0",
         "@base-ui/react": "^1.8.0",
         "@google/genai": "^2.21.0",
+        "@resvg/resvg-js": "^2.6.2",
         "@tanstack/react-query": "^5.102.8",
         "@tanstack/react-query-devtools": "^5.102.8",
         "bcryptjs": "^3.0.3",
