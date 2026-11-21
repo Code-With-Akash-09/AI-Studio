@@ -141,11 +141,28 @@ pnpm anim:refs
 API (only when `ANIMATION_ENABLED=true`): `GET /api/animation` (roster),
 `POST /api/animation` `{ dialogue, dimension?, tts?, socketId? }` → `/videos/animations/<file>.mp4`.
 
-## Pipeline plug-in point (future)
+## Pipeline integration (opt-in)
 
-`video.service.js#createScene()` can branch on `scene.visualType === "character"`
-and call `renderDialogueScene(scene.dialogue, { index, dimension })`. The result
-has the same `{ path, duration, captions, ... }` shape and encoding (30 fps,
-44.1 kHz stereo, 1920x1080 / 1080x1920) as other scenes, so `combineScenes()`
-can concat it unchanged. `analyzeScript` would need a prompt that emits the
-dialogue-script JSON for those scenes.
+Everything is off unless `ANIMATION_ENABLED=true`; with it off the daily
+pipeline, prompts and `/api/animation` (404) behave exactly as before.
+
+- **Per video:** POST `/api/generate` with `"characterAnimation": true`, or tick
+  "Character dialogue scenes (beta)" in Studio settings on the Generate page.
+  `ANIMATION_PIPELINE_DEFAULT=true` turns it on for every job (still needs the
+  master flag). Resumed jobs keep the option they were created with.
+- **analyzeScript:** when on, the prompt allows 1-2 `visualType: "character"`
+  scenes with a `dialogue` script (Raazu/Golu/Kissa Nani, Sheru as stage dog).
+  `normalizeAnalysis()` drops extra/invalid character scenes back to `video`.
+- **createScene:** character scenes go through `pipeline.js`:
+  `sanitizeCharacterDialogue()` (speaker aliases, cast of 2, safe actions only:
+  no `jump`, no `catch` pose, max 2 actions per line, clamped moves, classic
+  style, voices only) then `renderDialogueScene()`. Any error or a TTS
+  placeholder line falls back to the normal stock `video` visual.
+- **Encoding:** scenes are rendered at 25 fps / 44.1 kHz stereo / SAR 1 /
+  1080x1920 or 1920x1080. 25 fps matches what the pipeline's own scenes really
+  contain (scenes.js `fps=30,...,setpts=PTS-STARTPTS` comes out at 25 fps with
+  the bundled ffmpeg 7.0.2), so `combineScenes()` concats with no resampling.
+- **Isolated test:** `.scripts/animation/seed-pipeline-test.mjs --user=<id>`
+  seeds a resumable job (only into a DB whose name contains `anim`/`test`),
+  then POST `/api/generate` with that `jobId` runs the real pipeline path
+  without an AI call.

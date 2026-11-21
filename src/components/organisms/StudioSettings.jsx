@@ -1,6 +1,7 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -51,6 +52,8 @@ export function StudioSettings({
     onBgmMoodChange,
     bgmVolume = 0.1,
     onBgmVolumeChange,
+    characterAnimation = false,
+    onCharacterAnimationChange,
     onGenerate,
     loading,
     scriptEmpty,
@@ -336,6 +339,29 @@ export function StudioSettings({
                             </div>
                         )}
                     </div>
+                    {onCharacterAnimationChange && (
+                        <div className="flex items-start gap-2">
+                            <Checkbox
+                                id="character-animation-checkbox"
+                                checked={characterAnimation}
+                                onCheckedChange={(v) =>
+                                    onCharacterAnimationChange(Boolean(v))
+                                }
+                            />
+                            <Label
+                                htmlFor="character-animation-checkbox"
+                                className="text-xs text-slate-700 leading-tight"
+                            >
+                                <span className="font-semibold">
+                                    Character dialogue scenes (beta)
+                                </span>
+                                <span className="block text-[10px] text-slate-400">
+                                    Animated Raazu/Golu scene where it fits.
+                                    Needs ANIMATION_ENABLED on the server.
+                                </span>
+                            </Label>
+                        </div>
+                    )}
                     <div className="space-y-1.5">
                         <Label
                             htmlFor="gemini-key-input"

@@ -19,6 +19,7 @@ import {
     ensureDirectories,
 } from "../utils/files.js";
 import { analyzeScript } from "./ai/analyzeScript.js";
+import { characterAnimationFor } from "./animation/flags.js";
 import { selectBestAsset } from "./ai/selectAsset.js";
 import { synthesizeSceneVisual } from "./ai/synthesizeSceneVisual.js";
 import { createCaptions } from "./captions/createCaptions.js";
@@ -54,8 +55,48 @@ async function createScene(
         onProgress = () => {},
         progressStart = 20,
         progressEnd = 85,
+        characterAnimation = false,
     } = {},
 ) {
+    // Opt-in animated character-dialogue scene (ANIMATION_ENABLED + per job).
+    // Any problem falls back to the normal visual path below.
+    if (scene.visualType === "character") {
+        if (characterAnimation && scene.dialogue) {
+            try {
+                const anim = await import("./animation/pipeline.js");
+                const dialogue = anim.sanitizeCharacterDialogue(scene, {
+                    dimension,
+                });
+                if (!dialogue) throw new Error("dialogue failed validation");
+                console.log(
+                    `\n[Animation] Rendering character dialogue scene ${index} (${dialogue.cast.join(" + ")}, ${dialogue.lines.length} lines, classic, voices only)...`,
+                );
+                const result = await anim.renderCharacterScene(scene, index, {
+                    dialogue,
+                    dimension,
+                    onProgress: (p) =>
+                        onProgress(
+                            Math.round(
+                                progressStart +
+                                    ((progressEnd - progressStart) * p) / 100,
+                            ),
+                            `Animating character scene ${index}...`,
+                            { currentScene: index },
+                        ),
+                });
+                onProgress(progressEnd, `Scene ${index} rendered.`, {
+                    currentScene: index,
+                });
+                return result;
+            } catch (err) {
+                console.warn(
+                    `[Animation] Character scene ${index} failed (${err.message}). Falling back to the normal visual.`,
+                );
+            }
+        }
+        scene = { ...scene, visualType: "video" };
+    }
+
     console.log("\n=================================");
     console.log(`SCENE ${scene.id} (${dimension.toUpperCase()})`);
     console.log("=================================");
@@ -407,7 +448,11 @@ export async function generateVideo(script, options = {}) {
         visualEngine = "ai_realism",
         bgmMood = "auto",
         bgmVolume = DEFAULT_BGM_VOLUME,
+        characterAnimation: characterAnimationOption,
     } = options;
+    // opt-in animated character scenes: needs ANIMATION_ENABLED=true, then the
+    // per-job option (or ANIMATION_PIPELINE_DEFAULT). Off → unchanged pipeline.
+    let characterAnimation = characterAnimationFor(characterAnimationOption);
 
     const normDimension = ["horizontal", "landscape", "16:9"].includes(
         String(dimension || "")
@@ -434,6 +479,15 @@ export async function generateVideo(script, options = {}) {
         }
     }
 
+    // a resumed job keeps its own per-job choice
+    if (
+        existingJob &&
+        characterAnimationOption === undefined &&
+        existingJob.options?.characterAnimation
+    ) {
+        characterAnimation = characterAnimationFor(true);
+    }
+
     if (!existingJob) {
         await createJob({
             jobId,
@@ -451,6 +505,7 @@ export async function generateVideo(script, options = {}) {
                 visualEngine,
                 bgmMood,
                 bgmVolume,
+                ...(characterAnimation ? { characterAnimation: true } : {}),
             },
         });
     }
@@ -485,6 +540,7 @@ export async function generateVideo(script, options = {}) {
                 language,
                 humanize,
                 geminiApiKeys,
+                characterAnimation,
             });
 
             detectedLanguage = analysis.detectedLanguage || language || "en";
@@ -566,6 +622,7 @@ export async function generateVideo(script, options = {}) {
                 geminiApiKeys,
                 dimension: normDimension,
                 visualEngine,
+                characterAnimation,
                 excludeUrls: Array.from(usedAssetUrls),
                 onProgress,
                 progressStart: 20 + Math.floor((i / scenes.length) * 65),

@@ -1,12 +1,27 @@
 import { generateJSON } from "./ai.factory.js";
 
+/** Max animated character-dialogue scenes per video (opt-in feature). */
+const MAX_CHARACTER_SCENES = 2;
+
 export async function analyzeScript(
     script,
-    { provider, model, language, geminiApiKeys } = {},
+    {
+        provider,
+        model,
+        language,
+        geminiApiKeys,
+        // opt-in (ANIMATION_ENABLED + per-job flag, resolved by the caller)
+        characterAnimation = false,
+    } = {},
 ) {
     if (!script || typeof script !== "string") {
         throw new Error("A valid script is required.");
     }
+
+    // loaded lazily so the default pipeline never loads the animation step
+    const characterDirective = characterAnimation
+        ? (await import("../animation/pipeline.js")).characterScenePrompt()
+        : "";
 
     const languageDirective =
         language && language !== "auto"
@@ -31,7 +46,7 @@ CRITICAL SCRIPT & DIRECTING RULES:
 10. NARRATIVE CONTINUITY: Ensure visual continuity of era, environment, and tone across all scenes.
 
 ${languageDirective}
-
+${characterDirective}
 STORYLINE ATMOSPHERE:
 - "storylineMood": Pick exactly one from ["inspirational", "dramatic", "upbeat", "chill", "suspense", "humorous"]
 - "narrativeTopic": Concise topic description (e.g. "Ancient Egyptian Pyramids & Preserved Artifacts")
@@ -46,7 +61,7 @@ FOR EVERY SCENE PROVIDE:
 - cameraShot: one of ["close_up", "wide_establishing", "macro", "aerial_drone", "pov", "tracking", "medium_shot"]
 - lightingMood: one of ["cinematic_warm", "dark_mysterious", "bright_natural", "golden_hour", "neon_cyberpunk", "vintage_retro", "dramatic_shadows"]
 - emotion: one of ["hyped", "curious", "shocked", "humorous", "dramatic", "thoughtful", "neutral"]
-- visualType: one of ["video", "image", "text"]
+- visualType: one of ${characterAnimation ? '["video", "image", "text", "character"]' : '["video", "image", "text"]'}
 - searchQueries: array of 2-3 specific English search terms
 - negativeKeywords: array of 2-3 terms to avoid
 - onScreenHighlight: short punchy text/number for visual emphasis
@@ -88,6 +103,18 @@ ${script}
         geminiApiKeys,
     });
 
+    return normalizeAnalysis(result, { language, characterAnimation });
+}
+
+/**
+ * Validate + sanitize the AI's script analysis (exported for tests).
+ * "character" scenes survive only when characterAnimation is on (max 2);
+ * otherwise they are downgraded to normal "video" scenes.
+ */
+export function normalizeAnalysis(
+    result,
+    { language, characterAnimation = false } = {},
+) {
     if (!result || !Array.isArray(result.scenes)) {
         console.error("Invalid AI script analysis result:", result);
         throw new Error("AI response does not contain a scenes array.");
@@ -141,6 +168,7 @@ ${script}
         result.narrativeTopic || "Story Video",
     ).trim();
     result.storylineMood = storylineMood;
+    let characterScenes = 0;
     result.scenes = result.scenes
         .map((scene, index) => {
             const rawShot = String(
@@ -157,6 +185,23 @@ ${script}
                 ? rawLighting
                 : "cinematic_warm";
 
+            let visualType = String(scene.visualType || "video").toLowerCase();
+            let dialogue;
+            if (visualType === "character") {
+                // only when enabled for this job, with a dialogue, and capped
+                if (
+                    characterAnimation &&
+                    scene.dialogue &&
+                    typeof scene.dialogue === "object" &&
+                    characterScenes < MAX_CHARACTER_SCENES
+                ) {
+                    characterScenes++;
+                    dialogue = scene.dialogue;
+                } else {
+                    visualType = "video";
+                }
+            }
+
             return {
                 id: scene.id || index + 1,
                 narration: String(scene.narration || "").trim(),
@@ -169,7 +214,8 @@ ${script}
                 cameraShot,
                 lightingMood,
                 emotion: scene.emotion || "neutral",
-                visualType: String(scene.visualType || "video").toLowerCase(),
+                visualType,
+                ...(dialogue ? { dialogue } : {}),
                 searchQueries:
                     Array.isArray(scene.searchQueries) &&
                     scene.searchQueries.length > 0

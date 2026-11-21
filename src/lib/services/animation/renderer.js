@@ -4,10 +4,8 @@
  */
 import { spawn } from "node:child_process";
 import os from "node:os";
-import { Worker } from "node:worker_threads";
 import { once } from "node:events";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { Resvg } from "@resvg/resvg-js";
 import { ANIMATION_OUTPUT_FPS } from "../../../constants/animation.js";
 import { getFFmpegPath } from "../../utils/ffmpeg.js";
@@ -17,8 +15,9 @@ import { renderBackground, renderRevealBeam } from "./backgrounds.js";
 import { renderCharacter } from "./rig.js";
 import { frameState } from "./timeline.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const FONTS_DIR = path.resolve(__dirname, "../../assets/fonts");
+import { ANIMATION_DIR, FONTS_DIR } from "./paths.js";
+
+export { FONTS_DIR };
 
 const n = (v) => Math.round(v * 100) / 100;
 
@@ -50,11 +49,15 @@ export function buildFrameSvg(timeline, frame) {
     return svg;
 }
 
+// Looked up at runtime (not imported) so bundlers (Next.js/Turbopack) do not
+// try to rewrite `new Worker(path)` into a bundled worker chunk.
+const RasterWorker = process.getBuiltinModule("node:worker_threads").Worker;
+
 /** Pool of resvg workers; results are returned in submission order. */
 function createRasterPool(size) {
     const workers = Array.from(
         { length: size },
-        () => new Worker(new URL("./rasterWorker.js", import.meta.url)),
+        () => new RasterWorker(path.join(ANIMATION_DIR, "rasterWorker.js")),
     );
     const pending = new Map();
     let next = 0;
@@ -124,7 +127,7 @@ export async function renderVideo(
     if (assPath) {
         vf += `,ass=filename='${ffmpegPathArg(assPath)}':fontsdir='${ffmpegPathArg(FONTS_DIR)}'`;
     }
-    vf += ",format=yuv420p";
+    vf += ",setsar=1,format=yuv420p";
 
     const args = [
         "-y",

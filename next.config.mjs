@@ -10,6 +10,7 @@ const nextConfig = {
         "socket.io",
         "bcryptjs",
         "jsonwebtoken",
+        "@resvg/resvg-js",
     ],
 
     turbopack: {},

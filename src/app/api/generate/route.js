@@ -36,6 +36,7 @@ export async function POST(request) {
         visualEngine,
         bgmMood,
         bgmVolume,
+        characterAnimation,
         geminiApiKeys: bodyGeminiKeys,
         geminiApiKey: bodyGeminiKey,
     } = body;
@@ -111,6 +112,8 @@ export async function POST(request) {
             visualEngine,
             bgmMood,
             bgmVolume,
+            // opt-in per video; ignored unless ANIMATION_ENABLED=true
+            characterAnimation,
             userId,
             geminiApiKeys: userGeminiKeys,
             onProgress: (progress, message, meta = {}) => {

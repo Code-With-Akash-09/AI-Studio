@@ -5,12 +5,12 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { getFFmpegPath } from "../../utils/ffmpeg.js";
 import { hashString } from "./random.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TTS_SCRIPT = path.join(__dirname, "tts_line.py");
+import { ANIMATION_DIR } from "./paths.js";
+
+const TTS_SCRIPT = path.join(ANIMATION_DIR, "tts_line.py");
 
 function resolvePython() {
     if (process.env.PYTHON_PATH) return process.env.PYTHON_PATH;

@@ -31,6 +31,7 @@ export default function GeneratePage() {
     const [geminiKey, setGeminiKey] = useState("");
     const [bgmMood, setBgmMood] = useState("auto");
     const [bgmVolume, setBgmVolume] = useState(0.1);
+    const [characterAnimation, setCharacterAnimation] = useState(false);
 
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -78,6 +79,7 @@ export default function GeneratePage() {
                     bgmMood,
                     bgmVolume,
                     ...(language && { language }),
+                    ...(characterAnimation && { characterAnimation: true }),
                     ...(geminiKey.trim() && { geminiApiKey: geminiKey.trim() }),
                     ...(resumeJobId && { jobId: resumeJobId }),
                 };
@@ -114,6 +116,7 @@ export default function GeneratePage() {
             geminiKey,
             bgmMood,
             bgmVolume,
+            characterAnimation,
             resumeJobId,
         ],
     );
@@ -286,6 +289,8 @@ export default function GeneratePage() {
                         onBgmMoodChange={setBgmMood}
                         bgmVolume={bgmVolume}
                         onBgmVolumeChange={setBgmVolume}
+                        characterAnimation={characterAnimation}
+                        onCharacterAnimationChange={setCharacterAnimation}
                         onGenerate={handleGenerate}
                         loading={loading}
                         scriptEmpty={!script.trim()}

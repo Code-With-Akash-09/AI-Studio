@@ -14,7 +14,6 @@ import fs from "node:fs";
 import path from "node:path";
 import {
     ANIMATION_DIMENSIONS,
-    ANIMATION_FLAG,
     ANIMATION_FPS,
     ANIMATION_OUTPUT_FPS,
     ANIME_FPS,
@@ -46,9 +45,7 @@ import { buildTimeline } from "./timeline.js";
 export { CHARACTERS, LEAD_CHARACTER_IDS, getCharacter } from "./characters.js";
 export { normalizeDialogue } from "./script.js";
 
-export function isAnimationEnabled() {
-    return String(process.env[ANIMATION_FLAG] || "").toLowerCase() === "true";
-}
+export { isAnimationEnabled } from "./flags.js";
 
 async function prepareLineAudio(dialogue, { tts, cacheDir, fps, sr, onLog }) {
     const result = [];
@@ -361,10 +358,15 @@ export async function renderCharacterAnimation(input, opts = {}) {
 }
 
 /**
- * Pipeline hook (not wired in yet): render a dialogue as one "scene" whose
- * shape matches video.service.js createScene() so combineScenes() can concat
- * it. Output is 30fps / 44.1kHz stereo / same WxH as the pipeline scenes.
+ * Pipeline hook (used by video.service.js createScene() for visualType
+ * "character", see pipeline.js): render a dialogue as one "scene" whose shape
+ * matches createScene() results so combineScenes() can concat it.
+ * Output is 25fps (what the pipeline's scenes really are) / 44.1kHz stereo /
+ * SAR 1 / yuv420p / same WxH as the pipeline scenes.
  */
+/** Effective frame rate of the main pipeline's rendered scenes (see below). */
+export const PIPELINE_SCENE_FPS = 25;
+
 export async function renderDialogueScene(
     input,
     { index = 1, dimension, tts = true, onProgress } = {},
@@ -375,8 +377,13 @@ export async function renderDialogueScene(
         dimension,
         tts,
         onProgress,
-        // pipeline scenes are concatenated at 30fps by combineScenes()
-        outputFps: ANIMATION_OUTPUT_FPS,
+        // Match what the pipeline's own scenes actually contain: scenes.js
+        // runs `fps=30,...,setpts=PTS-STARTPTS`, and with the bundled ffmpeg
+        // 7 the setpts resets the rate, so image/text/video scenes come out
+        // at 25fps; the voice-only combine keeps 25fps (the BGM path re-times
+        // to 30). Animating natively at 25fps avoids any frame drop/dup.
+        fps: PIPELINE_SCENE_FPS,
+        outputFps: PIPELINE_SCENE_FPS,
     });
     return {
         id: input.id || `anim-${index}`,
@@ -387,5 +394,7 @@ export async function renderDialogueScene(
         narration: result.captions.map((c) => c.text).join(" "),
         dimension: result.dimension,
         emotion: "dialogue",
+        usedTts: result.usedTts,
+        placeholderLines: result.placeholderLines,
     };
 }
