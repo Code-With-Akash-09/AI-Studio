@@ -131,6 +131,8 @@ async function createScene(
             visualType: "text",
             narration: scene.narration,
             dimension,
+            punchline: Boolean(scene.punchline),
+            emotion: scene.emotion,
         };
     }
 
@@ -341,9 +343,7 @@ async function createScene(
             renderOptions,
         );
     } else {
-        console.log(
-            `\nRendering image scene with Ken Burns motion (${dimension})...`,
-        );
+        console.log(`\nRendering image scene (${dimension})...`);
         await renderImageScene(
             inputPath,
             audioPath,
@@ -379,6 +379,8 @@ async function createScene(
         cameraShot: scene.cameraShot,
         lightingMood: scene.lightingMood,
         onScreenHighlight: scene.onScreenHighlight,
+        punchline: Boolean(scene.punchline),
+        emotion: scene.emotion,
         matchScore: asset.matchScore || 85,
         selectionReason:
             asset.selectionReason || "Matched via directorial brief",

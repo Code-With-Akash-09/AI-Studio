@@ -21,6 +21,14 @@ function formatAssTime(seconds) {
     return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
 }
 
+function escapeAssText(text) {
+    return String(text || "")
+        .replace(/\\/g, "\\\\")
+        .replace(/\{/g, "\\{")
+        .replace(/\}/g, "\\}")
+        .replace(/\r?\n/g, "\\N");
+}
+
 /**
  * Build a styled ASS file from captions array and optional directorial on-screen highlight.
  *
@@ -48,6 +56,7 @@ export function createAss(captions, opts = {}) {
         width = 1080,
         height = 1920,
         fontName = "Arial",
+        onScreenHighlight = "",
     } = opts;
 
     const header = `[Script Info]
@@ -60,14 +69,24 @@ WrapStyle: 1
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,${fontName},${fontSize},&H00FFFFFF,&H000000FF,&H00000000,&HAA000000,1,0,0,0,100,100,0,0,3,3,1,${alignment},20,20,${marginV},1
+Style: Highlight,${fontName},${Math.round(fontSize * 0.85)},&H0000E5FF,&H000000FF,&H00000000,&HAA000000,1,0,0,0,100,100,0,0,3,4,1,8,40,40,${Math.round(height * 0.08)},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`;
 
     const dialogueEvents = captions.map(
         (c) =>
-            `Dialogue: 0,${formatAssTime(c.start)},${formatAssTime(c.end)},Default,,0,0,0,,${c.text}`,
+            `Dialogue: 0,${formatAssTime(c.start)},${formatAssTime(c.end)},Default,,0,0,0,,${escapeAssText(c.text)}`,
     );
+
+    const highlight = escapeAssText(onScreenHighlight).trim();
+    if (highlight && captions.length > 0) {
+        const start = captions[0].start ?? 0;
+        const end = captions[captions.length - 1].end ?? start + 2;
+        dialogueEvents.unshift(
+            `Dialogue: 1,${formatAssTime(start)},${formatAssTime(end)},Highlight,,0,0,0,,${highlight}`,
+        );
+    }
 
     return `${header}\n${dialogueEvents.join("\n")}\n`;
 }

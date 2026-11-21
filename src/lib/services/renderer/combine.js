@@ -5,8 +5,7 @@ import { runFFmpeg } from "../../utils/ffmpeg.js";
 
 /**
  * Combines rendered scene videos into a final MP4, optionally mixing
- * a storyline background music track and contextual sound effects (SFX)
- * with automated volume ducking, adelay offsets, and fading.
+ * a storyline background music track with a short fade in/out.
  *
  * @param {Array<Object>} sceneFiles - Array of scene objects with .path and .duration
  * @param {string} outputPath - Destination path for final MP4

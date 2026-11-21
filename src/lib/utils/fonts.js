@@ -63,6 +63,21 @@ export function getFontFileName(text = "", language = "") {
 }
 
 /**
+ * ASS / libass Fontname should be the font family, not the file name.
+ * "Mukta-Bold.ttf" -> "Mukta", "NotoSansTamil-Bold.ttf" -> "Noto Sans Tamil".
+ *
+ * @param {string} [text=""]
+ * @param {string} [language=""]
+ * @returns {string} Font family name
+ */
+export function getFontFamilyName(text = "", language = "") {
+    return getFontFileName(text, language)
+        .replace(/\.[^.]+$/, "")
+        .replace(/-Bold$/i, "")
+        .replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+/**
  * Returns the absolute path to a Unicode font file matching the text & language.
  *
  * @param {string} [text=""] - Text or language hint

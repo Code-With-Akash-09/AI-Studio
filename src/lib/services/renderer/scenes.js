@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "../../config.js";
 import { runFFmpeg } from "../../utils/ffmpeg.js";
-import { getFontFileName } from "../../utils/fonts.js";
+import { getFontFamilyName } from "../../utils/fonts.js";
 import { createAss } from "../captions/createAss.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,8 +42,7 @@ function writeAssFile(
     const marginV = isHorizontal ? 60 : 80;
 
     // Pick font name heuristic
-    const fontFileName = getFontFileName(captions[0]?.text ?? "", language);
-    const fontName = fontFileName.replace(/\.[^.]+$/, "");
+    const fontName = getFontFamilyName(captions[0]?.text ?? "", language);
 
     const assContent = createAss(captions, {
         fontSize,
@@ -52,6 +51,7 @@ function writeAssFile(
         width,
         height,
         fontName,
+        onScreenHighlight: options.onScreenHighlight,
     });
 
     const assPath = path.join(config.tempDir, `scene-${sceneId}.ass`);
@@ -112,7 +112,7 @@ export async function renderImageScene(
         options,
     );
 
-    let vfilter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},fps=30,setpts=PTS-STARTPTS`;
+    let vfilter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1,fps=30,setpts=PTS-STARTPTS`;
     if (assPath) {
         vfilter += `,${buildAssFilter(assPath)}`;
     }
@@ -176,7 +176,7 @@ export async function renderVideoScene(
         options,
     );
 
-    let vfilter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},fps=30,setpts=PTS-STARTPTS`;
+    let vfilter = `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1,fps=30,setpts=PTS-STARTPTS`;
     if (assPath) {
         vfilter += `,${buildAssFilter(assPath)}`;
     }
@@ -237,8 +237,7 @@ export async function renderTextScene(
     // Override alignment to center-screen (5) for text scenes
     if (assPath) {
         // Rewrite with center alignment
-        const fontFileName = getFontFileName(text, language);
-        const fontName = fontFileName.replace(/\.[^.]+$/, "");
+        const fontName = getFontFamilyName(text, language);
         const assContent = createAss(caption, {
             fontSize: isHorizontal ? 60 : 72,
             marginV: 0,
@@ -252,7 +251,7 @@ export async function renderTextScene(
 
     const assFilter = assPath ? `,${buildAssFilter(assPath)}` : "";
     const filterComplex =
-        `[0:v]fps=30,setpts=PTS-STARTPTS${assFilter}[vout];` +
+        `[0:v]fps=30,setsar=1,setpts=PTS-STARTPTS${assFilter}[vout];` +
         `[1:a]aresample=44100,aformat=sample_fmts=fltp:channel_layouts=stereo[aout]`;
 
     await runFFmpeg([

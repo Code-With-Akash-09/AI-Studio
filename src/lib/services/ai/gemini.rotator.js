@@ -151,7 +151,6 @@ export async function executeGeminiWithKeyRotation({
 
     for (let kIndex = 0; kIndex < candidateKeys.length; kIndex++) {
         const currentKey = candidateKeys[kIndex];
-        const maskedKey = `${currentKey.slice(0, 8)}...${currentKey.slice(-4)}`;
 
         for (const targetModel of modelChain) {
             for (let attempt = 0; attempt < maxRetriesPerKey; attempt++) {
@@ -161,7 +160,7 @@ export async function executeGeminiWithKeyRotation({
                             ? ` (retry ${attempt + 1}/${maxRetriesPerKey})`
                             : "";
                     console.log(
-                        `[Gemini Rotator] Calling [${targetModel}] with key ${kIndex + 1}/${candidateKeys.length} (${maskedKey})${attemptLabel}...`,
+                        `[Gemini Rotator] Calling [${targetModel}] with key ${kIndex + 1}/${candidateKeys.length}${attemptLabel}...`,
                     );
 
                     const ai = new GoogleGenAI({ apiKey: currentKey });

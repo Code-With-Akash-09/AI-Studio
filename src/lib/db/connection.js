@@ -22,7 +22,24 @@ export async function connectDB() {
     }
 
     if (isConnected && db) {
-        return db;
+        try {
+            await db.command({ ping: 1 });
+            return db;
+        } catch (error) {
+            console.warn(
+                "[MongoDB] Stale connection detected, reconnecting:",
+                error.message || error,
+            );
+            isConnected = false;
+            db = null;
+            try {
+                if (client) await client.close();
+            } catch {}
+            client = null;
+            if (process.env.NODE_ENV !== "production") {
+                global[globalKey] = null;
+            }
+        }
     }
 
     try {
