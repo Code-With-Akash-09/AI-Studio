@@ -4,6 +4,13 @@
  * time t?" deterministically (pure, no I/O).
  */
 import { getStageLayout } from "./backgrounds.js";
+import {
+    DRAMATIC,
+    buildActing,
+    dramaticAt,
+    performanceAt,
+    positionAt,
+} from "./classic/acting.js";
 import { CLASSIC_SCALE, classicHeadCenterY } from "./classic/classicRig.js";
 import { CHARACTERS } from "./characters.js";
 import { characterHeight } from "./rig.js";
@@ -79,7 +86,9 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
     const classic = dialogue.style === "classic";
     dialogue.cast.forEach((id, slot) => {
         const character = CHARACTERS[id];
-        const scale = layout.characterScale * (classic ? CLASSIC_SCALE : 1);
+        const scale = classic
+            ? (layout.vertical ? 1.25 : 1) * CLASSIC_SCALE
+            : layout.characterScale;
         actors[id] = {
             id,
             character,
@@ -106,11 +115,17 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
         if (ev.beat === "reveal") sfx.push({ type: "impact", time: ev.start });
     }
 
+    const acting = classic
+        ? buildActing(dialogue, events, actors, layout)
+        : null;
+    const total = acting ? Math.max(duration, acting.end + 0.9) : duration;
+
     return {
         dialogue,
         layout,
         events,
-        duration,
+        duration: total,
+        acting,
         actors,
         sfx: sfx.sort((a, b) => a.time - b.time),
         transitions,
@@ -151,7 +166,14 @@ const smooth = (x) => {
     return c * c * (3 - 2 * c);
 };
 
-function cameraTarget(timeline, ev) {
+/** Actor x / head y at time t (moving actors in the classic style). */
+function actorFocus(timeline, a, t) {
+    if (!timeline.acting) return { x: a.x, headY: a.headY };
+    const p = positionAt(timeline.acting, a.id, t);
+    return { x: p.x, headY: a.headY + p.lift };
+}
+
+function cameraTarget(timeline, ev, t = 0) {
     const { layout, actors } = timeline;
     const cx = layout.width / 2;
     const cy = layout.height / 2;
@@ -159,12 +181,15 @@ function cameraTarget(timeline, ev) {
     switch (ev.camera) {
         case "speaker":
         case "listener": {
-            const a =
-                actors[ev.camera === "speaker" ? ev.speaker : ev.listenerId];
+            const a = actorFocus(
+                timeline,
+                actors[ev.camera === "speaker" ? ev.speaker : ev.listenerId],
+                t,
+            );
             return { s: 1.3, x: a.x, y: a.headY + layout.height * 0.12 };
         }
         case "closeup": {
-            const a = actors[ev.speaker];
+            const a = actorFocus(timeline, actors[ev.speaker], t);
             return {
                 s: layout.vertical ? 1.7 : 1.95,
                 x: a.x,
@@ -181,6 +206,25 @@ function cameraTarget(timeline, ev) {
                 y: layout.horizonY - layout.haveli.h * 0.55,
             };
         default:
+            if (layout.vertical && timeline.acting) {
+                // Shorts framing: push in on the pair, keep heads in the upper-middle
+                // safe area and the bottom ~20% free for captions / Shorts UI
+                const xs = Object.values(actors).map(
+                    (ac) => actorFocus(timeline, ac, t).x,
+                );
+                const mid =
+                    xs.reduce((sum, v) => sum + v, 0) / Math.max(1, xs.length);
+                const s = 1.15;
+                const half = layout.width / (2 * s);
+                return {
+                    s,
+                    x: Math.min(
+                        layout.width - half,
+                        Math.max(half, (mid + cx) / 2),
+                    ),
+                    y: layout.groundY - layout.height * 0.27,
+                };
+            }
             return { s: 1, x: cx, y: cy };
     }
 }
@@ -232,7 +276,10 @@ export function frameState(timeline, t, frameIndex) {
                 flash,
                 since < FLASH_DUR ? 1 - since / FLASH_DUR : 0,
             );
-            beam = Math.max(beam, smooth(since / 0.8));
+            const hold = e.actions?.some((a) => a.type === "dramatic")
+                ? DRAMATIC.end - 0.15
+                : 0;
+            beam = Math.max(beam, smooth((since - hold) / 0.7));
             glint = Math.max(glint, 0.5 + 0.5 * Math.sin(t * 9));
         }
     }
@@ -250,8 +297,8 @@ export function frameState(timeline, t, frameIndex) {
     }
     const camEv = camIdx >= 0 ? events[camIdx] : null;
     const prev = camIdx > 0 ? events[camIdx - 1] : null;
-    const from = cameraTarget(timeline, prev);
-    const to = cameraTarget(timeline, camEv);
+    const from = cameraTarget(timeline, prev, t);
+    const to = cameraTarget(timeline, camEv, t);
     const anime = timeline.dialogue.style === "anime";
     const classic = timeline.dialogue.style === "classic";
     // Anime style uses hard cuts (with speed lines); flat style eases.
@@ -292,6 +339,62 @@ export function frameState(timeline, t, frameIndex) {
         };
     }
 
+    // Classic dramatic beat: zoom-punch → intense eye close-up → action pose
+    const drama = timeline.acting ? dramaticAt(timeline, t) : null;
+    if (drama) {
+        const a = actors[drama.who];
+        const f = actorFocus(timeline, a, t);
+        const eyeY = f.headY + a.character.classic.headR * 0.06 * a.scale;
+        if (drama.phase === "punch") {
+            const p = drama.s / DRAMATIC.punch;
+            const target = {
+                s: 1.9,
+                x: f.x,
+                y: f.headY + layout.height * 0.06,
+            };
+            const k2 = 1 + Math.sin(Math.PI * Math.min(1, p)) * 0.12;
+            camera = clampCamera(
+                {
+                    s:
+                        (camera.s +
+                            (target.s - camera.s) * Math.min(1, p * 1.4)) *
+                        k2,
+                    x: camera.x + (target.x - camera.x) * Math.min(1, p * 1.4),
+                    y: camera.y + (target.y - camera.y) * Math.min(1, p * 1.4),
+                },
+                layout,
+            );
+        } else if (drama.phase === "eye") {
+            const p =
+                (drama.s - DRAMATIC.punch) / (DRAMATIC.eye - DRAMATIC.punch);
+            camera = clampCamera(
+                {
+                    s: (layout.vertical ? 2.9 : 3.5) * (1 + p * 0.08),
+                    x: f.x,
+                    y: eyeY,
+                },
+                layout,
+            );
+        } else {
+            const p = (drama.s - DRAMATIC.eye) / (DRAMATIC.end - DRAMATIC.eye);
+            camera = clampCamera(
+                {
+                    s: 1.45 * (1 + p * 0.06),
+                    x: f.x + layout.width * 0.04 * (a.slot === 1 ? -1 : 1),
+                    y: f.headY + layout.height * 0.14,
+                },
+                layout,
+            );
+            if (p < 0.25) {
+                const amp = 10 * (1 - p / 0.25);
+                shake = [
+                    Math.sin(frameIndex * 2.9) * amp,
+                    Math.cos(frameIndex * 3.7) * amp,
+                ];
+            }
+        }
+    }
+
     // Characters
     const chars = Object.values(actors).map((actor) => {
         const state = {
@@ -308,6 +411,12 @@ export function frameState(timeline, t, frameIndex) {
             look: [0.55, 0],
         };
         state.since = t;
+        if (timeline.acting) {
+            Object.assign(state, performanceAt(timeline, actor, t), {
+                groundY: actor.y,
+            });
+            return { actor, state };
+        }
         if (!ev) return { actor, state };
 
         const speaking = actor.id === ev.speaker;
@@ -354,14 +463,18 @@ export function frameState(timeline, t, frameIndex) {
                 c.actor.character.classic?.glasses &&
                 c.actor.id === ev.speaker
             ) {
+                const hold = ev.actions?.some((a) => a.type === "dramatic")
+                    ? DRAMATIC.eye + 0.15
+                    : 0.35;
                 c.state.glint = Math.max(
                     0,
-                    1 - Math.abs(t - ev.start - 0.35) / 0.45,
+                    1 - Math.abs(t - ev.start - hold) / 0.45,
                 );
             }
         }
     }
-    if (classic && ev && camEv?.camera === "closeup") {
+    if (drama) fx.dramatic = drama;
+    if (classic && ev && camEv?.camera === "closeup" && !drama) {
         // gag backdrop behind a shocked/scared close-up
         fx.gag = ["shocked", "scared", "crying"].includes(ev.expression);
     }

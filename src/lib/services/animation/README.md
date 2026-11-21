@@ -38,6 +38,39 @@ AI image generation: characters are parametric SVG rigs, rasterized with
 - `"anime"` — `anime/`: cel-shaded rig, 5-layer parallax, manga FX, 24fps.
 - `"flat"` — the original rig (15fps → 30fps).
 
+### Classic acting (`classic/acting.js`, `classic/visemes.js`)
+
+Every classic character is animated continuously as a pure function of time:
+breathing, weight shifts, frequent (double) blinks, eye darts, idle glances and small
+idle gestures, talk gestures + nods, head turns (front / ¾ / side via a spherical
+yaw projection), text-driven mouth shapes (Devanagari syllables → visemes, shaped by
+the TTS loudness envelope), anticipation → overshoot → squash/stretch on every pose
+change with eased in-betweens, and secondary motion (hair, scarf, gamchha, kurta hem,
+coat tail) driven by velocity and wind.
+
+Blocking is scripted per line:
+
+```jsonc
+"positions": { "raazu": "offL", "golu": "offR" },      // start marks (left|center|right|offL|offR|0..1)
+"lines": [{
+  "gesture": "explain" | "wave" | "fist" | "nod",
+  "actions": [
+    { "who": "raazu", "type": "walk", "to": "left", "delay": -0.6 },   // walk cycle with bob + arm swing
+    { "who": "golu", "type": "run", "to": "offR", "at": "end" },       // speed-blur legs + dust cloud
+    { "who": "golu", "type": "hop", "to": 0.72 },
+    { "who": "golu", "type": "jump", "to": "raazu" },                  // jump into the other's arms
+    { "who": "golu", "type": "doubletake", "at": "end" },
+    { "who": "raazu", "type": "dramatic" }                             // zoom-punch → intense eye close-up → action pose
+  ]
+}]
+```
+
+`at` = `start` (default) | `end` | `after` (after the reaction), `delay` seconds,
+optional `dur`. The dramatic beat adds a dark vignette, radial speed lines, wind,
+letterbox on the eye shot and motion trails on the action pose. Vertical renders use
+a pushed-in "Shorts" wide shot that keeps the pair in the upper-middle safe area.
+
+
 `renderDialogueScene()` always outputs 30fps so pipeline scenes concat cleanly.
 Same stack for all styles, no new runtime deps: SVG → `@resvg/resvg-js`
 (rasterized in a `worker_threads` pool, `rasterWorker.js`) → ffmpeg-static.
@@ -54,7 +87,7 @@ Both are opt-in per dialogue (`ANIMATION_AUDIO_DEFAULTS` in `constants/animation
 ## Run
 
 ```bash
-# classic sample (default): node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/gali-ball-classic.json /workspace/anim-demo --name=classic-v1
+# classic sample (default): node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/gali-ball-classic.json /workspace/anim-demo --name=classic-v3
 # anime sample: node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/haveli-mirror-anime.json /workspace/anim-demo --name=anime-v1
 # demo MP4 + 3 stills → /workspace/anim-demo (needs python with edge-tts; PYTHON_PATH optional)
 pnpm anim:demo

@@ -6,44 +6,82 @@
     "dimension": "horizontal",
     "background": "gali_day",
     "cast": ["raazu", "golu"],
+    "positions": {
+        "raazu": "offL",
+        "golu": "offR"
+    },
     "lines": [
         {
             "speaker": "raazu",
             "text": "दोस्तों, गोलू की खोई गेंद हर सुबह अपने आप घर लौट आती है!",
             "roman": "Doston, Golu ki khoi gend har subah apne aap ghar laut aati hai!",
             "expression": "curious",
-            "pose": "point",
+            "pose": "idle",
+            "gesture": "explain",
             "look": "camera",
             "listener": {
                 "expression": "scared",
                 "pose": "idle"
             },
-            "camera": "wide"
+            "camera": "wide",
+            "actions": [
+                {
+                    "who": "raazu",
+                    "type": "walk",
+                    "to": "left",
+                    "delay": -0.6
+                },
+                {
+                    "who": "golu",
+                    "type": "run",
+                    "to": "right",
+                    "at": "end",
+                    "delay": -0.9
+                }
+            ]
         },
         {
             "speaker": "golu",
-            "text": "भाई, ज़रूर कोई भूत रात को क्रिकेट खेलता है!",
-            "roman": "Bhai, zaroor koi bhoot raat ko cricket khelta hai!",
+            "text": "मतलब भूत! मैं तो चला!",
+            "roman": "Matlab bhoot! Main toh chala!",
             "expression": "scared",
             "pose": "scared",
             "listener": {
-                "expression": "neutral",
-                "pose": "idle"
+                "expression": "suspicious",
+                "pose": "hips"
             },
-            "camera": "speaker"
+            "camera": "wide",
+            "pauseAfter": 0.9,
+            "actions": [
+                {
+                    "who": "golu",
+                    "type": "run",
+                    "to": "offR",
+                    "at": "end",
+                    "delay": 0.05
+                }
+            ]
         },
         {
             "speaker": "raazu",
-            "text": "भूत? गोलू, भूत को तो बल्ला पकड़ना भी नहीं आता।",
-            "roman": "Bhoot? Golu, bhoot ko toh balla pakadna bhi nahin aata.",
+            "text": "गोलू, रुको! भूत को तो बल्ला पकड़ना भी नहीं आता।",
+            "roman": "Golu, ruko! Bhoot ko toh balla pakadna bhi nahin aata.",
             "expression": "suspicious",
-            "pose": "hips",
+            "pose": "idle",
+            "gesture": "wave",
             "listener": {
                 "expression": "scared",
                 "pose": "idle"
             },
             "camera": "wide",
-            "pauseAfter": 0.25
+            "actions": [
+                {
+                    "who": "golu",
+                    "type": "walk",
+                    "to": "right",
+                    "delay": 0.5
+                }
+            ]
         },
         {
             "speaker": "golu",
@@ -73,12 +111,33 @@
                 "expression": "curious",
                 "pose": "idle"
             },
-            "camera": "speaker"
+            "camera": "speaker",
+            "pauseAfter": 1.1,
+            "actions": [
+                {
+                    "who": "raazu",
+                    "type": "walk",
+                    "to": 0.34,
+                    "delay": -0.2
+                },
+                {
+                    "who": "golu",
+                    "type": "walk",
+                    "to": 0.62,
+                    "delay": 0.4
+                },
+                {
+                    "who": "golu",
+                    "type": "doubletake",
+                    "at": "end",
+                    "delay": 0.0
+                }
+            ]
         },
         {
             "speaker": "golu",
-            "text": "दाँत?! मतलब भूत के दाँत भी हैं?!",
-            "roman": "Daant?! Matlab bhoot ke daant bhi hain?!",
+            "text": "दाँत?! भूत के दाँत भी हैं?!",
+            "roman": "Daant?! Bhoot ke daant bhi hain?!",
             "expression": "shocked",
             "pose": "scared",
             "listener": {
@@ -86,12 +145,34 @@
                 "pose": "idle"
             },
             "camera": "closeup",
-            "pauseAfter": 0.4
+            "pauseAfter": 0.3
         },
         {
             "speaker": "raazu",
-            "text": "नहीं! ये शेरू है, गली का कुत्ता। रोज़ गेंद ढूँढकर वापस ले आता है!",
-            "roman": "Nahin! Ye Sheru hai, gali ka kutta. Roz gend dhoondhkar wapas le aata hai!",
+            "text": "अरे, डरो मत!",
+            "roman": "Arre, daro mat!",
+            "expression": "happy",
+            "pose": "idle",
+            "gesture": "nod",
+            "listener": {
+                "expression": "scared",
+                "pose": "scared"
+            },
+            "camera": "wide",
+            "pauseAfter": 0.5,
+            "actions": [
+                {
+                    "who": "golu",
+                    "type": "jump",
+                    "to": "raazu",
+                    "delay": -0.1
+                }
+            ]
+        },
+        {
+            "speaker": "raazu",
+            "text": "नहीं! ये शेरू है, गली का कुत्ता! रोज़ गेंद वापस ले आता है।",
+            "roman": "Nahin! Ye Sheru hai, gali ka kutta! Roz gend wapas le aata hai.",
             "expression": "happy",
             "pose": "point",
             "listener": {
@@ -103,7 +184,19 @@
             "stage": {
                 "dog": 1
             },
-            "pauseAfter": 0.4
+            "pauseAfter": 0.4,
+            "actions": [
+                {
+                    "who": "raazu",
+                    "type": "dramatic"
+                },
+                {
+                    "who": "golu",
+                    "type": "hop",
+                    "to": 0.72,
+                    "delay": 0.1
+                }
+            ]
         },
         {
             "speaker": "golu",
@@ -121,7 +214,16 @@
                 "pose": "laugh",
                 "text": "हा हा!"
             },
-            "camera": "wide"
+            "camera": "wide",
+            "actions": [
+                {
+                    "who": "golu",
+                    "type": "run",
+                    "to": 0.6,
+                    "at": "after",
+                    "delay": 0.05
+                }
+            ]
         }
     ]
 }

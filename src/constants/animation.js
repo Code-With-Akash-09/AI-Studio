@@ -29,6 +29,7 @@ export const EXPRESSIONS = [
     "suspicious",
     "dizzy",
     "crying",
+    "intense",
 ];
 
 /** Aliases accepted in dialogue scripts. */
@@ -52,12 +53,22 @@ export const POSES = [
     "shrug",
     "hips",
     "facefault",
+    "catch",
+    "action",
+    "scratch",
+    "adjust",
 ];
 
 /** Mouth shapes: X = closed/rest, A small, B medium, C wide, O round. */
 export const VISEMES = ["X", "A", "B", "C", "O"];
 
 export const BEATS = ["humor", "reveal"];
+
+/** Classic-style blocking / acting actions (per line, see script.js). */
+export const ACTIONS = ["walk", "run", "hop", "jump", "doubletake", "dramatic"];
+
+/** Talking gestures layered on an idle pose (classic style). */
+export const GESTURES = ["explain", "wave", "fist", "nod"];
 
 /**
  * Default audio is voices only. Background music and story-beat SFX are

@@ -98,8 +98,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
         if (ev.reaction?.text) {
             const listener = actors[ev.listenerId];
             const frame = frameState(timeline, ev.reactionStart + 0.05, 0);
+            const live = frame.chars?.find((c) => c.actor.id === ev.listenerId);
+            const lx = live?.state.x ?? listener.x;
+            const lift = live ? live.state.y - listener.y : 0;
             const [x, y] = toScreen(
-                [listener.x, listener.headY - layout.height * 0.14],
+                [lx, listener.headY + lift - layout.height * 0.14],
                 frame,
                 layout,
             );

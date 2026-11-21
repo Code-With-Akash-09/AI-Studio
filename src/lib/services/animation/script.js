@@ -31,6 +31,7 @@
  * }
  */
 import {
+    ACTIONS,
     ANIMATION_AUDIO_DEFAULTS,
     BEATS,
     CAMERAS,
@@ -38,6 +39,7 @@ import {
     STYLES,
     EXPRESSIONS,
     EXPRESSION_ALIASES,
+    GESTURES,
     POSES,
 } from "../../../constants/animation.js";
 import { BACKGROUND_IDS } from "./backgrounds.js";
@@ -49,6 +51,33 @@ function normExpression(value, fallback = "neutral") {
         .trim();
     const resolved = EXPRESSION_ALIASES[v] || v;
     return EXPRESSIONS.includes(resolved) ? resolved : fallback;
+}
+
+/**
+ * Classic-style blocking: [{ who, type, to?, at?, delay?, dur? }]
+ *  type: walk | run | hop (to a mark), jump (into the arms of character "to"),
+ *        doubletake, dramatic (reveal beat)
+ *  to:   0..1 (fraction of the stage width) or left | center | right | offL | offR
+ *  at:   start (default) | end | after (after the reaction), plus delay seconds
+ */
+function normActions(list, cast) {
+    if (!Array.isArray(list)) return [];
+    return list
+        .filter((a) => a && cast.includes(a.who) && ACTIONS.includes(a.type))
+        .slice(0, 6)
+        .map((a) => ({
+            who: a.who,
+            type: a.type,
+            to:
+                typeof a.to === "number"
+                    ? Math.min(1.3, Math.max(-0.3, a.to))
+                    : typeof a.to === "string"
+                      ? a.to
+                      : undefined,
+            at: ["start", "end", "after"].includes(a.at) ? a.at : "start",
+            delay: Math.min(Math.max(Number(a.delay) || 0, -3), 6),
+            dur: a.dur ? Math.min(Math.max(Number(a.dur), 0.2), 6) : undefined,
+        }));
 }
 
 function normPose(value, fallback = "idle") {
@@ -137,6 +166,8 @@ export function normalizeDialogue(input) {
             background: BACKGROUND_IDS.includes(line.background)
                 ? line.background
                 : null,
+            gesture: GESTURES.includes(line.gesture) ? line.gesture : null,
+            actions: normActions(line.actions, cast),
             pauseAfter: Math.min(
                 Math.max(Number(line.pauseAfter ?? 0.35) || 0, 0),
                 3,
@@ -166,6 +197,15 @@ export function normalizeDialogue(input) {
         cast,
         stage:
             input.stage && typeof input.stage === "object" ? input.stage : {},
+        // classic style: starting marks per character, e.g. { "raazu": "offL" }
+        positions:
+            input.positions && typeof input.positions === "object"
+                ? Object.fromEntries(
+                      Object.entries(input.positions).filter(([id]) =>
+                          cast.includes(id),
+                      ),
+                  )
+                : {},
         watermark:
             input.watermark === undefined
                 ? "Raaz Explain Tv"
