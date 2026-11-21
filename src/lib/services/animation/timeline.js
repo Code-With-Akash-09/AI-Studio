@@ -4,6 +4,7 @@
  * time t?" deterministically (pure, no I/O).
  */
 import { getStageLayout } from "./backgrounds.js";
+import { CLASSIC_SCALE, classicHeadCenterY } from "./classic/classicRig.js";
 import { CHARACTERS } from "./characters.js";
 import { characterHeight } from "./rig.js";
 import { createRandom, hashString } from "./random.js";
@@ -12,10 +13,8 @@ const INTRO = 0.6;
 const OUTRO = 1.2;
 const REACTION_MIN = 1.1;
 const CAMERA_EASE = 0.4;
-/** Camera moves start this long before the next line so the switch (and its whoosh) lands in the pause. */
+/** Camera moves start this long before the next line so the switch lands in the pause. */
 const CAMERA_LEAD = 0.3;
-/** Whoosh is placed slightly before the switch (pipeline uses -0.2s for scene cuts). */
-const WHOOSH_LEAD = 0.15;
 const FLASH_DUR = 0.45;
 
 /**
@@ -47,7 +46,8 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
     });
     const duration = cursor + OUTRO;
 
-    // Screen switches: every camera re-frame or background change is a transition.
+    // Screen switches: every camera re-frame or background change is a transition
+    // (visual only — no sound is attached to screen switches).
     const transitions = [];
     let prevKey = "wide";
     let prevBg = dialogue.background;
@@ -76,37 +76,33 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
 
     // Character placement
     const actors = {};
+    const classic = dialogue.style === "classic";
     dialogue.cast.forEach((id, slot) => {
         const character = CHARACTERS[id];
+        const scale = layout.characterScale * (classic ? CLASSIC_SCALE : 1);
         actors[id] = {
             id,
             character,
             slot,
             x: layout.slots[slot],
             y: layout.groundY,
-            scale: layout.characterScale,
+            scale,
             flip: slot === 1,
             blinks: blinkSchedule(id, duration),
-            headY:
-                layout.groundY -
-                characterHeight(character) * layout.characterScale * 0.72,
+            headY: classic
+                ? layout.groundY + classicHeadCenterY(character) * scale
+                : layout.groundY -
+                  characterHeight(character) * layout.characterScale * 0.72,
         };
     });
 
-    // SFX cues
-    const sfx = transitions.map((tr) => ({
-        type: "whoosh",
-        time: Math.max(0, tr.time - WHOOSH_LEAD),
-        transition: tr.kind,
-    }));
+    // SFX cues: story beats only (comedy reaction + reveal impact).
+    // Screen switches (camera cuts / background changes) never get a sound.
+    const sfx = [];
     for (const ev of events) {
         if (ev.reaction?.sfx)
             sfx.push({ type: ev.reaction.sfx, time: ev.reactionStart + 0.05 });
-        if (ev.beat === "reveal") {
-            // riser builds into the switch, impact lands on the flash
-            sfx.push({ type: "riser", time: Math.max(0, ev.camStart - 1.0) });
-            sfx.push({ type: "impact", time: ev.start });
-        }
+        if (ev.beat === "reveal") sfx.push({ type: "impact", time: ev.start });
     }
 
     return {
@@ -175,6 +171,9 @@ function cameraTarget(timeline, ev) {
             };
         }
         case "reveal":
+            if (layout.revealSpot && ev.bg !== "haveli_night") {
+                return { s: 1.35, ...layout.revealSpot };
+            }
             return {
                 s: 1.4,
                 x: layout.haveli.cx,
@@ -253,10 +252,11 @@ export function frameState(timeline, t, frameIndex) {
     const from = cameraTarget(timeline, prev);
     const to = cameraTarget(timeline, camEv);
     const anime = timeline.dialogue.style === "anime";
+    const classic = timeline.dialogue.style === "classic";
     // Anime style uses hard cuts (with speed lines); flat style eases.
     const k = !camEv
         ? 1
-        : camEv.sceneCut || anime
+        : camEv.sceneCut || anime || classic
           ? 1
           : smooth((t - camEv.camStart) / CAMERA_EASE);
     const background = camEv?.bg || timeline.dialogue.background;
@@ -306,6 +306,7 @@ export function frameState(timeline, t, frameIndex) {
             talking: false,
             look: [0.55, 0],
         };
+        state.since = t;
         if (!ev) return { actor, state };
 
         const speaking = actor.id === ev.speaker;
@@ -314,6 +315,7 @@ export function frameState(timeline, t, frameIndex) {
             t >= ev.reactionStart &&
             t < ev.reactionEnd;
 
+        state.since = t - ev.start;
         if (speaking) {
             state.expression = ev.expression;
             state.pose = ev.pose;
@@ -330,6 +332,7 @@ export function frameState(timeline, t, frameIndex) {
             if (inReaction) {
                 state.expression = ev.reaction.expression;
                 state.pose = ev.reaction.pose;
+                state.since = t - ev.reactionStart;
             }
         }
         return { actor, state };
@@ -343,6 +346,23 @@ export function frameState(timeline, t, frameIndex) {
             fx.speed = 1 - cutAge / 0.2;
         if (["closeup", "reveal"].includes(camEv.camera))
             fx.letterbox = Math.min(1, cutAge / 0.25);
+    }
+    if (classic && ev?.beat === "reveal") {
+        for (const c of chars) {
+            if (
+                c.actor.character.classic?.glasses &&
+                c.actor.id === ev.speaker
+            ) {
+                c.state.glint = Math.max(
+                    0,
+                    1 - Math.abs(t - ev.start - 0.35) / 0.45,
+                );
+            }
+        }
+    }
+    if (classic && ev && camEv?.camera === "closeup") {
+        // gag backdrop behind a shocked/scared close-up
+        fx.gag = ["shocked", "scared", "crying"].includes(ev.expression);
     }
     if (anime && ev) {
         const speakerActor = actors[ev.speaker];

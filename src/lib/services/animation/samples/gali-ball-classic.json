@@ -1,0 +1,105 @@
+{
+    "id": "gali-ball-classic",
+    "title": "गेंद अपने आप घर कैसे लौटी? (Gend apne aap ghar kaise lauti?)",
+    "language": "hi",
+    "style": "classic",
+    "dimension": "horizontal",
+    "background": "gali_day",
+    "bgm": "humorous",
+    "bgmVolume": 0.14,
+    "cast": ["raazu", "golu"],
+    "lines": [
+        {
+            "speaker": "raazu",
+            "text": "दोस्तों, गोलू की खोई गेंद हर सुबह अपने आप घर लौट आती है!",
+            "roman": "Doston, Golu ki khoi gend har subah apne aap ghar laut aati hai!",
+            "expression": "curious",
+            "pose": "point",
+            "look": "camera",
+            "listener": { "expression": "scared", "pose": "idle" },
+            "camera": "wide"
+        },
+        {
+            "speaker": "golu",
+            "text": "भाई, ज़रूर कोई भूत रात को क्रिकेट खेलता है!",
+            "roman": "Bhai, zaroor koi bhoot raat ko cricket khelta hai!",
+            "expression": "scared",
+            "pose": "scared",
+            "listener": { "expression": "neutral", "pose": "idle" },
+            "camera": "speaker"
+        },
+        {
+            "speaker": "raazu",
+            "text": "भूत? गोलू, भूत को तो बल्ला पकड़ना भी नहीं आता।",
+            "roman": "Bhoot? Golu, bhoot ko toh balla pakadna bhi nahin aata.",
+            "expression": "suspicious",
+            "pose": "hips",
+            "listener": { "expression": "scared", "pose": "idle" },
+            "camera": "wide",
+            "pauseAfter": 0.25
+        },
+        {
+            "speaker": "golu",
+            "text": "तो फिर भूत को कोचिंग चाहिए!",
+            "roman": "Toh phir bhoot ko coaching chahiye!",
+            "expression": "laughing",
+            "pose": "laugh",
+            "listener": { "expression": "suspicious", "pose": "hips" },
+            "beat": "humor",
+            "reaction": {
+                "expression": "dizzy",
+                "pose": "facefault",
+                "text": "धड़ाम!",
+                "sfx": "boing"
+            },
+            "camera": "wide"
+        },
+        {
+            "speaker": "raazu",
+            "text": "देखो, गेंद पर ये छोटे-छोटे दाँतों के निशान हैं।",
+            "roman": "Dekho, gend par ye chhote-chhote daanton ke nishaan hain.",
+            "expression": "curious",
+            "pose": "think",
+            "listener": { "expression": "curious", "pose": "idle" },
+            "camera": "speaker"
+        },
+        {
+            "speaker": "golu",
+            "text": "दाँत?! मतलब भूत के दाँत भी हैं?!",
+            "roman": "Daant?! Matlab bhoot ke daant bhi hain?!",
+            "expression": "shocked",
+            "pose": "scared",
+            "listener": { "expression": "neutral", "pose": "idle" },
+            "camera": "closeup",
+            "pauseAfter": 0.4
+        },
+        {
+            "speaker": "raazu",
+            "text": "नहीं! ये शेरू है, गली का कुत्ता। रोज़ गेंद ढूँढकर वापस ले आता है!",
+            "roman": "Nahin! Ye Sheru hai, gali ka kutta. Roz gend dhoondhkar wapas le aata hai!",
+            "expression": "happy",
+            "pose": "point",
+            "listener": { "expression": "shocked", "pose": "idle" },
+            "beat": "reveal",
+            "camera": "reveal",
+            "stage": { "dog": 1 },
+            "pauseAfter": 0.4
+        },
+        {
+            "speaker": "golu",
+            "text": "और मैं रोज़ उसे भूत समझकर डर जाता था!",
+            "roman": "Aur main roz use bhoot samajhkar dar jaata tha!",
+            "expression": "crying",
+            "pose": "shrug",
+            "listener": { "expression": "happy", "pose": "idle" },
+            "beat": "humor",
+            "reaction": {
+                "expression": "laughing",
+                "pose": "laugh",
+                "text": "हा हा!",
+                "sfx": "boing"
+            },
+            "camera": "wide"
+        }
+    ]
+}

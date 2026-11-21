@@ -6,7 +6,7 @@
  *   "title": "Haveli ki raat wali roshni",
  *   "language": "hi",
  *   "dimension": "horizontal" | "vertical",
- *   "style": "flat" | "anime",
+ *   "style": "classic" | "flat" | "anime",   // default "classic"
  *   "background": "haveli_night",
  *   "bgm": "suspense" | null,
  *   "bgmVolume": 0.14,
@@ -24,7 +24,7 @@
  *     "reaction": { "expression": "suspicious", "pose": "hips", "text": "धक-धक!", "sfx": "boing" },
  *     "camera": "wide" | "speaker" | "listener" | "reveal",
  *     "stage": { "windowGlow": 1 },        // background state from this line on
- *     "background": "plain",               // optional scene/background switch (cut + whoosh)
+ *     "background": "plain",               // optional scene/background switch (hard cut, no sound)
  *     "pauseAfter": 0.35
  *   }]
  * }
@@ -32,6 +32,7 @@
 import {
     BEATS,
     CAMERAS,
+    DEFAULT_STYLE,
     STYLES,
     EXPRESSIONS,
     EXPRESSION_ALIASES,
@@ -154,7 +155,7 @@ export function normalizeDialogue(input) {
             Math.max(Number(input.bgmVolume ?? 0.14) || 0.14, 0),
             0.5,
         ),
-        style: STYLES.includes(input.style) ? input.style : "flat",
+        style: STYLES.includes(input.style) ? input.style : DEFAULT_STYLE,
         cast,
         stage:
             input.stage && typeof input.stage === "object" ? input.stage : {},

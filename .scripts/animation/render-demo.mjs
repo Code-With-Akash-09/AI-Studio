@@ -18,7 +18,8 @@ const suffix = (args.find((a) => a.startsWith("--suffix=")) || "").slice(9);
 const nameFlag = (args.find((a) => a.startsWith("--name=")) || "").slice(7);
 const positional = args.filter((a) => !a.startsWith("--"));
 const samplePath =
-    positional[0] || "src/lib/services/animation/samples/haveli-mirror.json";
+    positional[0] ||
+    "src/lib/services/animation/samples/gali-ball-classic.json";
 const outDir = path.resolve(positional[1] || "/workspace/anim-demo");
 const dimension = flags.has("--vertical") ? "vertical" : undefined;
 

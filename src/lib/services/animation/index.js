@@ -18,6 +18,7 @@ import {
     ANIMATION_FPS,
     ANIMATION_OUTPUT_FPS,
     ANIME_FPS,
+    STYLES,
     ANIMATION_SAMPLE_RATE,
 } from "../../../constants/animation.js";
 import { config } from "../../config.js";
@@ -78,9 +79,12 @@ async function prepareLineAudio(dialogue, { tts, cacheDir, fps, sr, onLog }) {
     return result;
 }
 
-/** Same gains the pipeline's sfx.service cue table uses (whoosh 0.22, impact 0.28, riser 0.18). */
-const SFX_GAIN = { whoosh: 0.22, impact: 0.3, riser: 0.2, boing: 0.55 };
-const SFX_PRIORITY = { impact: 3, boing: 2, whoosh: 1 };
+/**
+ * Story-beat SFX only (no screen-switch/transition sounds). Gains follow the
+ * pipeline's sfx.service levels (impact 0.28, riser 0.18).
+ */
+const SFX_GAIN = { impact: 0.3, riser: 0.2, boing: 0.55 };
+const SFX_PRIORITY = { impact: 3, boing: 2 };
 /** Any cue starting within this window after another (non-riser) cue is softened. */
 const STACK_WINDOW = 0.5;
 const STACK_ATTENUATION = 0.55;
@@ -149,7 +153,9 @@ async function mixSoundtrack(timeline, lineAudio, sr) {
 
     // SFX from the system library (src/assets/audio/sfx via sfx.service) + synthesized boing
     const buffers = { boing: synthBoing(sr) };
-    for (const type of ["whoosh", "riser", "impact"]) {
+    const needed = new Set(timeline.sfx.map((c) => c.type));
+    for (const type of ["riser", "impact"]) {
+        if (!needed.has(type)) continue;
         const file = getSfxPath(type);
         buffers[type] = await loadFile(file, sr);
         if (buffers[type]) used.sfx[type] = file;
@@ -227,11 +233,12 @@ export async function renderCharacterAnimation(input, opts = {}) {
         dialogue.dimension =
             opts.dimension === "vertical" ? "vertical" : "horizontal";
     const { width, height } = ANIMATION_DIMENSIONS[dialogue.dimension];
-    if (opts.style) dialogue.style = opts.style === "anime" ? "anime" : "flat";
-    const anime = dialogue.style === "anime";
-    const fps = opts.fps || (anime ? ANIME_FPS : ANIMATION_FPS);
+    if (STYLES.includes(opts.style)) dialogue.style = opts.style;
+    // anime + classic animate at 24fps; the original flat rig at 15fps → 30fps
+    const smooth24 = dialogue.style !== "flat";
+    const fps = opts.fps || (smooth24 ? ANIME_FPS : ANIMATION_FPS);
     const outputFps =
-        opts.outputFps || (anime ? ANIME_FPS : ANIMATION_OUTPUT_FPS);
+        opts.outputFps || (smooth24 ? ANIME_FPS : ANIMATION_OUTPUT_FPS);
     const sr = ANIMATION_SAMPLE_RATE;
     const onProgress = opts.onProgress || (() => {});
     const onLog = (msg) => console.log(`[Animation] ${msg}`);

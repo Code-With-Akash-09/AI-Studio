@@ -45,9 +45,15 @@ export function buildDialogueAss(timeline) {
     const W = layout.width;
     const H = layout.height;
     const vertical = layout.vertical;
-    const fontSize = vertical ? 58 : 52;
+    const classic = dialogue.style === "classic";
+    const fontSize = classic ? (vertical ? 64 : 58) : vertical ? 58 : 52;
     const popSize = vertical ? 92 : 86;
-    const marginV = vertical ? Math.round(H * 0.12) : 34;
+    const marginV = vertical ? Math.round(H * 0.12) : classic ? 40 : 34;
+    // classic: friendly rounded Baloo 2 (OFL, Devanagari + Latin), chunky outline
+    const font = classic ? "Baloo 2 ExtraBold" : "Mukta";
+    const bold = classic ? 0 : 1;
+    const outline = classic ? 7 : 5;
+    const outlineColour = classic ? "&H00402A2A" : "&H00140E10";
 
     const header = `[Script Info]
 ScriptType: v4.00+
@@ -58,9 +64,9 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Line,Mukta,${fontSize},&H00FFFFFF,&H000000FF,&H00140E10,&H96000000,1,0,0,0,100,100,0,0,1,5,2,2,${vertical ? 60 : 160},${vertical ? 60 : 160},${marginV},1
-Style: Pop,Mukta,${popSize},&H0030E6FF,&H000000FF,&H00140E10,&H96000000,1,0,0,0,100,100,0,-6,1,7,3,5,20,20,20,1
-Style: Mark,Mukta,${vertical ? 34 : 30},&H00FFFFFF,&H000000FF,&H00140E10,&H96000000,1,0,0,0,100,100,1,0,1,3,0,9,30,30,24,1
+Style: Line,${font},${fontSize},&H00FFFFFF,&H000000FF,${outlineColour},&H96000000,${bold},0,0,0,100,100,0,0,1,${outline},2,2,${vertical ? 60 : 160},${vertical ? 60 : 160},${marginV},1
+Style: Pop,${font},${popSize},&H0030E6FF,&H000000FF,${outlineColour},&H96000000,${bold},0,0,0,100,100,0,-6,1,${outline + 2},3,5,20,20,20,1
+Style: Mark,${font},${vertical ? 34 : 30},&H00FFFFFF,&H000000FF,&H00140E10,&H96000000,1,0,0,0,100,100,1,0,1,3,0,9,30,30,24,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`;

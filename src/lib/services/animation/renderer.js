@@ -12,6 +12,7 @@ import { Resvg } from "@resvg/resvg-js";
 import { ANIMATION_OUTPUT_FPS } from "../../../constants/animation.js";
 import { getFFmpegPath } from "../../utils/ffmpeg.js";
 import { buildAnimeFrameSvg } from "./anime/animeFrame.js";
+import { buildClassicFrameSvg } from "./classic/classicFrame.js";
 import { renderBackground, renderRevealBeam } from "./backgrounds.js";
 import { renderCharacter } from "./rig.js";
 import { frameState } from "./timeline.js";
@@ -89,9 +90,14 @@ function ffmpegPathArg(p) {
 }
 
 function frameSvg(timeline, frame, index) {
-    return timeline.dialogue.style === "anime"
-        ? buildAnimeFrameSvg(timeline, frame, index)
-        : buildFrameSvg(timeline, frame);
+    switch (timeline.dialogue.style) {
+        case "anime":
+            return buildAnimeFrameSvg(timeline, frame, index);
+        case "classic":
+            return buildClassicFrameSvg(timeline, frame, index);
+        default:
+            return buildFrameSvg(timeline, frame);
+    }
 }
 
 /**

@@ -27,6 +27,8 @@ export const EXPRESSIONS = [
     "scared",
     "laughing",
     "suspicious",
+    "dizzy",
+    "crying",
 ];
 
 /** Aliases accepted in dialogue scripts. */
@@ -36,6 +38,9 @@ export const EXPRESSION_ALIASES = {
     surprised: "shocked",
     afraid: "scared",
     smile: "happy",
+    confused: "dizzy",
+    sad: "crying",
+    tears: "crying",
 };
 
 export const POSES = [
@@ -46,6 +51,7 @@ export const POSES = [
     "laugh",
     "shrug",
     "hips",
+    "facefault",
 ];
 
 /** Mouth shapes: X = closed/rest, A small, B medium, C wide, O round. */
@@ -55,8 +61,13 @@ export const BEATS = ["humor", "reveal"];
 
 export const CAMERAS = ["wide", "speaker", "listener", "reveal", "closeup"];
 
-/** Render styles: "flat" (original rig) or "anime" (cel-shaded rig + FX). */
-export const STYLES = ["flat", "anime"];
+/**
+ * Render styles: "classic" (round chibi kids-TV look, default), "flat"
+ * (original rig) or "anime" (cel-shaded rig + FX).
+ */
+export const STYLES = ["classic", "flat", "anime"];
 
-/** Anime style animates at 24fps (on ones). */
+export const DEFAULT_STYLE = "classic";
+
+/** Anime and classic styles animate at 24fps. */
 export const ANIME_FPS = 24;

@@ -2,6 +2,7 @@
     "id": "haveli-mirror",
     "title": "हवेली की रहस्यमयी रोशनी (Haveli ki rahasyamayi roshni)",
     "language": "hi",
+    "style": "flat",
     "dimension": "horizontal",
     "background": "haveli_night",
     "bgm": "suspense",

@@ -23,28 +23,37 @@ AI image generation: characters are parametric SVG rigs, rasterized with
 
 ## Styles
 
-`dialogue.style` picks the look (default `"flat"`, the original rig — kept as the fallback):
+`dialogue.style` picks the look (default `"classic"`; `"flat"` and `"anime"` remain as alternates):
 
-- `"anime"` — `anime/`: cel-shaded rig (`animeRig.js`: shadow + rim-highlight layers,
-  anime eyes with iris gradient and two shines, swaying hair, glasses glint, emotion
-  symbols: sweat drop, anger vein, blush hatching, shock lines, gloom), 5-layer parallax
-  background (`animeBackgrounds.js`), screen-space FX (`fx.js`: focus lines, speed lines on
-  cuts, 2-frame impact frame on reveal/shock, letterbox on close-ups, colour grade),
-  hard cuts + slow camera drift, extra `"closeup"` camera, 24fps output.
-  `renderDialogueScene()` still outputs 30fps so pipeline scenes concat cleanly.
-- Same stack, no new deps: SVG → `@resvg/resvg-js` (rasterized in a `worker_threads`
-  pool, `rasterWorker.js`) → ffmpeg-static.
+- `"classic"` — `classic/`: round chibi kids-TV look (head ≈ half the height, stubby
+  limbs), thick uniform dark outlines, flat bright colours, dot/oval eyes with a shine,
+  big open mouths, rosy cheeks, bouncy squash-and-stretch, comedy reactions (jump-up
+  shock with lines, sweat drop, gloom lines, swirly dizzy eyes + stars, tear fountains,
+  `facefault` pose), sunburst gag backdrop on shocked close-ups, bright daytime Indian
+  gali background (`gali_day`: sky, kites, clouds, rooftops with water tanks, colourful
+  houses with balconies/laundry/toran, neem tree, lane with planter) as flat parallax
+  layers, hard cuts, 24fps, rounded Baloo 2 captions (OFL, `assets/fonts/Baloo2-*`).
+  Only the genre is inspired by classic Japanese kids' TV; the cast and every design
+  here are original.
+- `"anime"` — `anime/`: cel-shaded rig, 5-layer parallax, manga FX, 24fps.
+- `"flat"` — the original rig (15fps → 30fps).
+
+`renderDialogueScene()` always outputs 30fps so pipeline scenes concat cleanly.
+Same stack for all styles, no new runtime deps: SVG → `@resvg/resvg-js`
+(rasterized in a `worker_threads` pool, `rasterWorker.js`) → ffmpeg-static.
 
 ## Audio
 
 BGM comes from `bgm.service` (same tracks/moods as the pipeline, `dialogue.bgm`,
-`dialogue.bgmVolume`) with smoothed ducking under speech; a whoosh plays on every screen
-switch (camera cut or per-line `background` change), plus boing/riser/impact beats, with
-priority de-stacking so cues never pile up.
+`dialogue.bgmVolume`) with smoothed ducking under speech. There are **no screen-switch
+sounds**: camera cuts and background changes are silent. SFX are story beats only —
+the comedy reaction sound (`reaction.sfx`, default boing; `"none"` to mute) and the
+reveal impact.
 
 ## Run
 
 ```bash
+# classic sample (default): node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/gali-ball-classic.json /workspace/anim-demo --name=classic-v1
 # anime sample: node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/haveli-mirror-anime.json /workspace/anim-demo --name=anime-v1
 # demo MP4 + 3 stills → /workspace/anim-demo (needs python with edge-tts; PYTHON_PATH optional)
 pnpm anim:demo

@@ -24,6 +24,11 @@ export function getStageLayout(width, height) {
         haveli: vertical
             ? { cx: width * 0.5, w: width * 0.62, h: height * 0.24 }
             : { cx: width * 0.5, w: width * 0.36, h: height * 0.42 },
+        /** Where the camera looks on a non-haveli reveal (e.g. Sheru behind the gali planter). */
+        revealSpot: {
+            x: width * 0.5,
+            y: (vertical ? height * 0.8 : height * 0.91) - height * 0.2,
+        },
         moon: vertical
             ? { x: width * 0.16, y: height * 0.2, r: width * 0.06 }
             : { x: width * 0.1, y: height * 0.14, r: height * 0.065 },
@@ -180,8 +185,19 @@ function plain(layout) {
     );
 }
 
+/** Simple daytime street for the flat/anime rigs (the classic style draws its own gali). */
+function galiDay(layout) {
+    const { width: W, height: H, horizonY } = layout;
+    return (
+        `<rect width="${W}" height="${H}" fill="#8FD3FF"/>` +
+        `<rect y="${n(horizonY - H * 0.32)}" width="${W}" height="${n(H * 0.32)}" fill="#F7C9A0"/>` +
+        `<rect y="${n(horizonY)}" width="${W}" height="${n(H - horizonY)}" fill="#E9D8B4"/>`
+    );
+}
+
 const BACKGROUNDS = {
     haveli_night: haveliNight,
+    gali_day: galiDay,
     plain,
 };
 
