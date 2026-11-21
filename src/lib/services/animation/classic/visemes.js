@@ -128,5 +128,30 @@ export function lineVisemes(text, envelope) {
         out[f] = vis;
         v++;
     }
+    return holdMin(out, 3);
+}
+
+/**
+ * Merge mouth-shape runs shorter than `min` frames into the previous shape so
+ * the mouth never flickers (each shape is held for at least 2-3 frames).
+ */
+export function holdMin(frames, min = 3) {
+    const out = frames.slice();
+    let i = 0;
+    while (i < out.length) {
+        let j = i;
+        while (j < out.length && out[j] === out[i]) j++;
+        if (j - i < min && i > 0) {
+            const prev = out[i - 1];
+            for (let k = i; k < j; k++) out[k] = prev;
+            // re-scan from the merged run start
+            let s = i - 1;
+            while (s > 0 && out[s - 1] === prev) s--;
+            i = s;
+            if (j - s >= min) i = j;
+            continue;
+        }
+        i = j;
+    }
     return out;
 }

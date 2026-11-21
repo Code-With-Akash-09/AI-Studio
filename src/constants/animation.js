@@ -65,7 +65,15 @@ export const VISEMES = ["X", "A", "B", "C", "O"];
 export const BEATS = ["humor", "reveal"];
 
 /** Classic-style blocking / acting actions (per line, see script.js). */
-export const ACTIONS = ["walk", "run", "hop", "jump", "doubletake", "dramatic"];
+export const ACTIONS = [
+    "walk",
+    "run",
+    "hop",
+    "hide",
+    "jump",
+    "doubletake",
+    "dramatic",
+];
 
 /** Talking gestures layered on an idle pose (classic style). */
 export const GESTURES = ["explain", "wave", "fist", "nod"];

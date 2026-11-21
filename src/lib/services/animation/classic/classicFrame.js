@@ -56,11 +56,11 @@ export function buildClassicFrameSvg(timeline, frame, frameIndex) {
             chars += `<circle cx="${n(p.x)}" cy="${n(p.y)}" r="${n(p.r)}" fill="#FFFFFF" fill-opacity="${n(p.o * 0.85)}" stroke="${OUT}" stroke-width="4" stroke-opacity="${n(p.o * 0.5)}"/>`;
         }
     }
-    // held / airborne characters are drawn in front
+    // stable z-order: hiding actors behind, carried / airborne actors in front
+    const layer = (st) =>
+        st.behind ? -1 : st.held || st.move === "jump" ? 1 : 0;
     const ordered = [...frame.chars].sort(
-        (a, b) =>
-            (a.state.held || a.state.move === "jump" ? 1 : 0) -
-            (b.state.held || b.state.move === "jump" ? 1 : 0),
+        (a, b) => layer(a.state) - layer(b.state),
     );
     for (const { actor, state } of ordered) {
         const uid = `c${actor.slot}f${frameIndex % 2}`;
@@ -85,17 +85,23 @@ export function buildClassicFrameSvg(timeline, frame, frameIndex) {
     }
     const drama = fx.dramatic;
     if (drama) {
-        // dark vignette + radial speed lines (+ wind streaks / cinematic bars on the eye shot)
-        svg += `<defs><radialGradient id="cVig" cx="0.5" cy="0.5" r="0.72"><stop offset="0.35" stop-color="#0B0618" stop-opacity="0"/><stop offset="1" stop-color="#0B0618" stop-opacity="${drama.phase === "eye" ? 0.85 : 0.6}"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#cVig)"/>`;
-        const fy = drama.phase === "eye" ? H * 0.5 : H * 0.42;
-        svg += focusLines(W, H, W / 2, fy, frameIndex, {
-            color: "#FFFFFF",
-            count: drama.phase === "eye" ? 70 : 55,
-            clear: drama.phase === "eye" ? 0.42 : 0.36,
-            opacity: drama.phase === "punch" ? 0.9 : 0.55,
-        });
-        if (drama.phase !== "punch") svg += speedLines(W, H, frameIndex, 0.8);
-        if (drama.phase === "eye") svg += letterbox(W, H, 1);
+        // dark vignette + radial speed lines (+ wind streaks / cinematic bars on
+        // the eye shot); everything fades out with the camera at the end
+        const k = 1 - (drama.fade || 0);
+        if (k > 0.01) {
+            const vig = (drama.phase === "eye" ? 0.85 : 0.6) * k;
+            svg += `<defs><radialGradient id="cVig" cx="0.5" cy="0.5" r="0.72"><stop offset="0.35" stop-color="#0B0618" stop-opacity="0"/><stop offset="1" stop-color="#0B0618" stop-opacity="${n(vig)}"/></radialGradient></defs><rect width="${W}" height="${H}" fill="url(#cVig)"/>`;
+            const fy = drama.phase === "eye" ? H * 0.5 : H * 0.42;
+            svg += focusLines(W, H, W / 2, fy, frameIndex, {
+                color: "#FFFFFF",
+                count: drama.phase === "eye" ? 70 : 55,
+                clear: drama.phase === "eye" ? 0.42 : 0.36,
+                opacity: (drama.phase === "punch" ? 0.9 : 0.55) * k,
+            });
+            if (drama.phase !== "punch")
+                svg += speedLines(W, H, frameIndex, 0.8 * k);
+            if (drama.phase === "eye") svg += letterbox(W, H, 1);
+        }
     }
     if (frame.flash > 0.01) {
         svg += `<rect width="${W}" height="${H}" fill="#FFFFFF" fill-opacity="${n(frame.flash * 0.75)}"/>`;

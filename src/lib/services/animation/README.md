@@ -56,14 +56,23 @@ Blocking is scripted per line:
   "gesture": "explain" | "wave" | "fist" | "nod",
   "actions": [
     { "who": "raazu", "type": "walk", "to": "left", "delay": -0.6 },   // walk cycle with bob + arm swing
-    { "who": "golu", "type": "run", "to": "offR", "at": "end" },       // speed-blur legs + dust cloud
-    { "who": "golu", "type": "hop", "to": 0.72 },
-    { "who": "golu", "type": "jump", "to": "raazu" },                  // jump into the other's arms
+    { "who": "golu", "type": "run", "to": "offR", "at": "end" },       // fast planted-foot cycle + dust
+    { "who": "golu", "type": "hide", "to": "raazu" },                  // scurry behind Raazu, peek + tremble
+    { "who": "golu", "type": "hop", "to": 0.68 },                      // (out of hiding: passes behind)
+    { "who": "golu", "type": "jump", "to": "raazu" },                  // into the other's arms (crude; avoid)
     { "who": "golu", "type": "doubletake", "at": "end" },
     { "who": "raazu", "type": "dramatic" }                             // zoom-punch → intense eye close-up → action pose
   ]
 }]
 ```
+
+Smoothness rules baked into the rig: walk/run feet stay planted (stride = 4 × step
+amplitude, so the stance foot moves at exactly the body speed); turns never squash
+the body — yaw eases to the front view at the left/right flip; procedural trembles
+are ≤ 3 Hz and talk bounce uses a low-passed loudness, so nothing aliases at 24fps;
+mouth shapes are held ≥ 3 frames; expression swaps are covered by a quick blink;
+z-order is stable (hiding actors behind, carried actors in front); the dramatic beat
+eases its camera and FX back into the line's own shot.
 
 `at` = `start` (default) | `end` | `after` (after the reaction), `delay` seconds,
 optional `dur`. The dramatic beat adds a dark vignette, radial speed lines, wind,
@@ -87,7 +96,7 @@ Both are opt-in per dialogue (`ANIMATION_AUDIO_DEFAULTS` in `constants/animation
 ## Run
 
 ```bash
-# classic sample (default): node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/gali-ball-classic.json /workspace/anim-demo --name=classic-v3
+# classic sample (default): node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/gali-ball-classic.json /workspace/anim-demo --name=classic-v4
 # anime sample: node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/haveli-mirror-anime.json /workspace/anim-demo --name=anime-v1
 # demo MP4 + 3 stills → /workspace/anim-demo (needs python with edge-tts; PYTHON_PATH optional)
 pnpm anim:demo

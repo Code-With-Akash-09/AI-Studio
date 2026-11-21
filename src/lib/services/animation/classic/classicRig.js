@@ -25,6 +25,8 @@ const LW = 7;
 /** Classic characters are drawn a little larger on stage (they are short). */
 export const CLASSIC_SCALE = 1.18;
 const POSE_BLEND = 0.34;
+/** Foot travel (local px, either side of the hip) per walk / run step. */
+export const STEP_AMP = { walk: 40, run: 52 };
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const backOut = (p) => {
@@ -108,9 +110,10 @@ function motion(C, g, s) {
     // walk / run
     if (walk) {
         const ph = walk.phase * Math.PI * 2;
-        m.dy -= Math.abs(Math.sin(ph)) * (walk.run ? 18 : 10) * walk.amt;
-        m.lean += (walk.run ? 11 : 3.5) * walk.amt;
-        m.tilt += Math.sin(ph) * 2 * walk.amt;
+        // body is highest at mid-stance (two bobs per cycle), never jittery
+        m.dy -= (0.5 - 0.5 * Math.cos(2 * ph)) * (walk.run ? 12 : 8) * walk.amt;
+        m.lean += (walk.run ? 6 : 3) * walk.amt;
+        m.tilt += Math.sin(ph) * 1.5 * walk.amt;
     }
     if (expression === "laughing") {
         const b = Math.abs(Math.sin(t * 11 + seed));
@@ -120,7 +123,8 @@ function motion(C, g, s) {
         m.tilt += Math.sin(t * 11) * 5;
     }
     if (expression === "scared" && !walk) {
-        m.dx += Math.sin(t * 55 + seed) * 3;
+        // trembling: low-frequency (~3 Hz) so it reads at 24fps instead of aliasing
+        m.dx += Math.sin(t * 19 + seed) * 2.2;
         m.sy *= 0.96;
         m.sx *= 1.03;
     }
@@ -143,7 +147,7 @@ function motion(C, g, s) {
             m.sy -= 0.15 * q;
             m.sx += 0.11 * q;
         } else {
-            m.dx += Math.sin(t * 40) * 1.5;
+            m.dx += Math.sin(t * 16) * 1;
         }
     }
     // expression change → head pop
@@ -181,10 +185,7 @@ function motion(C, g, s) {
         m.sx += 0.08 * q;
         m.dy += 10 * q;
     }
-    if (s.held) {
-        m.dx += Math.sin(t * 30) * 2;
-        m.tilt += Math.sin(t * 9) * 4;
-    }
+    if (s.held) m.tilt += Math.sin(t * 6) * 3;
     if (pose === "action") m.lean += 9;
     // face-fault: stiffen + hop, fall with overshoot, bounce, recover
     if (pose === "facefault") {
@@ -247,14 +248,14 @@ function poseHand(pose, side, C, g, t) {
             return side > 0 ? [ax + 150, sy - 34] : [-(ax + 70), sy + 26];
         case "scratch":
             return side > 0
-                ? [R * 0.35 + Math.sin(t * 22) * 8, g.headCY - R * 0.62]
+                ? [R * 0.35 + Math.sin(t * 12) * 6, g.headCY - R * 0.62]
                 : idle;
         case "adjust":
             return side > 0 ? [R * 0.14, g.headCY + R * 0.12] : idle;
         case "facefault":
             return [
-                side * (ax + 36) + Math.sin(t * 20 + side) * 14,
-                sy - 96 + Math.cos(t * 17 + side) * 10,
+                side * (ax + 36) + Math.sin(t * 9 + side) * 10,
+                sy - 96 + Math.cos(t * 8 + side) * 7,
             ];
         default:
             return idle;
@@ -301,19 +302,13 @@ function handTarget(C, g, s, side) {
     }
     // walk / run arm swing
     if (s.walk) {
-        const ph = s.walk.phase * Math.PI * 2 + (side > 0 ? Math.PI : 0);
+        const ph = s.walk.phase * Math.PI * 2 + (side > 0 ? 0 : Math.PI);
         const a = s.walk.amt;
-        if (s.walk.run) {
-            H = [
-                H[0] * (1 - a) + a * (side * ax * 0.4 + Math.sin(ph) * 60),
-                H[1] * (1 - a) + a * (sy + 30 - Math.max(0, Math.sin(ph)) * 26),
-            ];
-        } else {
-            H = [
-                H[0] + Math.sin(ph) * 34 * a,
-                H[1] - Math.abs(Math.sin(ph)) * 6 * a,
-            ];
-        }
+        const swing = Math.cos(ph) * (s.walk.run ? 44 : 30) * a;
+        H = [
+            H[0] + swing,
+            H[1] - Math.abs(Math.cos(ph)) * (s.walk.run ? 14 : 6) * a,
+        ];
     }
     return H;
 }
@@ -356,38 +351,35 @@ function drawLegs(C, g, s) {
     let svg = "";
     const legW = C.body === "saree" ? 28 : 36;
     const walk = s.walk;
-    if (walk?.run && walk.amt > 0.5) {
-        // speed-blur legs: a spinning smear instead of legs
-        const cy = g.hipY * 0.5 - 4;
-        svg += `<ellipse cx="6" cy="${n(cy)}" rx="62" ry="${n(-g.hipY * 0.55 + 14)}" fill="${C.pants}" fill-opacity="0.85" ${stroke(5)}/>`;
-        for (let i = 0; i < 3; i++) {
-            const a = t * 40 + i * 2.1;
-            svg += `<path d="M ${n(Math.cos(a) * 50)} ${n(cy + Math.sin(a) * 26)} A 52 30 0 0 1 ${n(Math.cos(a + 1.4) * 50)} ${n(cy + Math.sin(a + 1.4) * 26)}" fill="none" ${stroke(5)}/>`;
-        }
-        svg += `<ellipse cx="${n(18 + Math.sin(t * 40) * 20)}" cy="-14" rx="38" ry="14" fill="${C.shoes}" fill-opacity="0.8" ${stroke(4)}/>`;
-        for (let i = 0; i < 4; i++) {
-            const y = cy - 30 + i * 22;
-            svg += `<path d="M ${n(-80 - i * 12)} ${n(y)} L ${n(-150 - i * 20)} ${n(y)}" stroke="${OUT}" stroke-width="5" stroke-linecap="round" opacity="0.6"/>`;
-        }
-        return svg;
-    }
     for (const side of [-1, 1]) {
         let hx = side * C.bodyW * 0.2;
         let end;
         let knee = null;
         if (pose === "facefault") {
-            const kick = Math.sin(t * 18 + side) * 12;
+            const kick = Math.sin(t * 9 + side) * 10;
             end = [hx + C.bodyW * 0.5 + 95, g.hipY + side * 26 + kick];
         } else if (s.held || s.move === "jump") {
-            const kick = Math.sin(t * 24 + side * 2) * 16;
+            const kick = Math.sin(t * 10 + side * 2) * 10;
             end = [hx + 30 + kick, g.hipY + 34];
         } else if (walk) {
+            // planted-foot cycle: during stance the foot moves back linearly at
+            // exactly the body speed (stride = 4*amp, see acting.js), during
+            // swing it eases forward with a lift — no foot sliding
             hx *= 0.4;
-            const ph = walk.phase * Math.PI * 2 + (side > 0 ? 0 : Math.PI);
-            const fx = hx + Math.sin(ph) * 46 * walk.amt;
-            const lift = Math.max(0, Math.cos(ph)) * 26 * walk.amt;
+            const amp = (walk.run ? STEP_AMP.run : STEP_AMP.walk) * walk.amt;
+            const q = (((walk.phase + (side > 0 ? 0 : 0.5)) % 1) + 1) % 1;
+            let fx;
+            let lift = 0;
+            if (q < 0.5) {
+                fx = amp * (1 - 4 * q);
+            } else {
+                const w = (q - 0.5) * 2;
+                fx = -amp + 2 * amp * (0.5 - 0.5 * Math.cos(Math.PI * w));
+                lift = Math.sin(Math.PI * w) * (walk.run ? 34 : 22) * walk.amt;
+            }
+            fx += hx;
             end = [fx, -16 - lift];
-            knee = [(hx + fx) / 2 + lift * 0.9, (g.hipY - 8 + end[1]) / 2];
+            knee = [(hx + fx) / 2 + 6 + lift * 0.8, (g.hipY - 8 + end[1]) / 2];
         } else if (pose === "action") {
             end = [hx * 2.6 + side * 10, -16];
         } else {
@@ -1082,8 +1074,9 @@ export function renderClassicCharacter(ch, state = {}) {
     if (armsOverHead) body += backArm + frontArm;
 
     const dir = facing >= 0 ? 1 : -1;
-    const turn = Math.max(0.3, Math.abs(facing));
-    const fs = dir * turn * scale;
+    // no horizontal squash while turning: the turn is carried by the head yaw
+    // (acting.js eases yaw to front-view at the flip), so the mirror is invisible
+    const fs = dir * scale;
     const groundY = state.groundY ?? y;
     const airborne = Math.max(0, groundY - y) / 200 + m.air * 0.6;
     const shadowW =

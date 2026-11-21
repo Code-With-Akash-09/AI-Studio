@@ -6,7 +6,7 @@
  * value is a function of (timeline, t) so frames can render in any order.
  */
 import { createRandom, hashString } from "../random.js";
-import { classicGeometry } from "./classicRig.js";
+import { classicGeometry, STEP_AMP } from "./classicRig.js";
 import { lineVisemes } from "./visemes.js";
 
 export const MARKS = {
@@ -21,6 +21,8 @@ const RUN_SPEED = 0.7;
 const HOP_DUR = 0.5;
 const JUMP_DUR = 0.6;
 const DOUBLETAKE_DUR = 1.1;
+const HIDE_DUR = 0.55;
+
 /** Dramatic reveal beat: zoom-punch → eye close-up → action pose. */
 export const DRAMATIC = { punch: 0.18, eye: 0.95, end: 1.8 };
 const POSE_BLEND = 0.34;
@@ -79,7 +81,12 @@ export function buildActing(dialogue, events, actors, layout) {
         if (!tr) continue;
         // a new movement ends any "held" state of this actor
         for (const s of tr.segs) {
-            if (s.type === "held" && s.t1 > a.t0 && s.t0 <= a.t0) s.t1 = a.t0;
+            if (
+                (s.type === "held" || s.type === "hidden") &&
+                s.t1 > a.t0 &&
+                s.t0 <= a.t0
+            )
+                s.t1 = a.t0;
         }
         const x0 = positionAt(plan, a.who, a.t0).x;
         switch (a.type) {
@@ -106,6 +113,8 @@ export function buildActing(dialogue, events, actors, layout) {
                     t1: a.t0 + HOP_DUR,
                     x0,
                     x1,
+                    // coming out of hiding: pass behind the protector, not over them
+                    behind: !!positionAt(plan, a.who, a.t0 - 0.01).hidden,
                 });
                 break;
             }
@@ -115,6 +124,37 @@ export function buildActing(dialogue, events, actors, layout) {
                 const t1 = a.t0 + JUMP_DUR;
                 tr.segs.push({ type: "jump", t0: a.t0, t1, x0, holder });
                 tr.segs.push({ type: "held", t0: t1, t1: Infinity, holder });
+                break;
+            }
+            case "hide": {
+                // scurry behind the other character and peek out from behind them
+                const holder = actors[a.to] ? a.to : null;
+                if (!holder) break;
+                const hp = positionAt(plan, holder, a.t0);
+                const hg = classicGeometry(actors[holder].character.classic);
+                const x1 = hp.x - hp.dir * hg.R * 0.75 * actors[holder].scale;
+                const dur = Math.max(
+                    0.5,
+                    Math.abs(x1 - x0) / (RUN_SPEED * 0.8 * layout.width),
+                );
+                const t1 = a.t0 + dur;
+                tr.segs.push({
+                    type: "run",
+                    t0: a.t0,
+                    t1,
+                    x0,
+                    x1,
+                    hide: true,
+                    behind: true,
+                    holder,
+                });
+                tr.segs.push({
+                    type: "hidden",
+                    t0: t1,
+                    t1: Infinity,
+                    holder,
+                    x: x1,
+                });
                 break;
             }
             case "doubletake":
@@ -168,6 +208,7 @@ export function positionAt(plan, id, t, depth = 0) {
     let lift = 0;
     let move = null;
     let held = null;
+    let hidden = null;
     let lastStop = -Infinity;
     for (const s of tr.segs) {
         if (t < s.t0) break;
@@ -188,7 +229,7 @@ export function positionAt(plan, id, t, depth = 0) {
         } else if (s.type === "hop") {
             x = s.x0 + (s.x1 - s.x0) * easeInOut(p);
             if (t < s.t1) {
-                lift = Math.sin(Math.PI * p) * 95 * actor.scale;
+                lift = Math.sin(Math.PI * p) * (s.low ? 55 : 95) * actor.scale;
                 move = { type: "hop", seg: s, p };
             } else lastStop = s.t1;
         } else if (s.type === "jump" && depth < 2) {
@@ -199,6 +240,8 @@ export function positionAt(plan, id, t, depth = 0) {
             lift = Math.sin(Math.PI * p) * 190 * actor.scale + off.lift * -p;
             if (t < s.t1) move = { type: "jump", seg: s, p };
             else lastStop = s.t1;
+        } else if (s.type === "hidden") {
+            if (t < s.t1) hidden = { holder: s.holder, since: t - s.t0 };
         } else if (s.type === "held" && depth < 2) {
             if (t < s.t1) {
                 const h = positionAt(plan, s.holder, t, depth + 1);
@@ -215,13 +258,32 @@ export function positionAt(plan, id, t, depth = 0) {
         dir = Math.sign(move.seg.x1 - move.seg.x0) || 1;
     } else if (held && depth < 2) {
         dir = -positionAt(plan, held.holder, t, depth + 1).dir;
+    } else if (hidden && depth < 2) {
+        // peek out the same way the protector is looking
+        dir = positionAt(plan, hidden.holder, t, depth + 1).dir;
+    } else if (shielding(plan, id, t)) {
+        // someone is hiding behind me: keep looking away from them (forward)
+        dir = -Math.sign(shielding(plan, id, t) - x) || 1;
     } else {
         const other = Object.keys(plan.tracks).find((k) => k !== id);
         let ox = plan.tracks[other]?.x0 ?? plan.layout.width / 2;
         if (depth < 1 && other) ox = positionAt(plan, other, t, depth + 1).x;
         dir = Math.sign(ox - x) || (actor.slot === 1 ? -1 : 1);
     }
-    return { x, lift: -lift, dir, move, held, stopAge: t - lastStop };
+    return { x, lift: -lift, dir, move, held, hidden, stopAge: t - lastStop };
+}
+
+/** x where another actor hides (or is scurrying to hide) behind `id`, else null. */
+function shielding(plan, id, t) {
+    for (const [other, tr] of Object.entries(plan.tracks)) {
+        if (other === id) continue;
+        for (const s of tr.segs) {
+            if (s.holder !== id || t < s.t0 || t >= s.t1) continue;
+            if (s.type === "hidden") return s.x;
+            if (s.hide) return s.x1;
+        }
+    }
+    return null;
 }
 
 /** Smoothed facing value in [-1, 1] (turns take ~0.2s). */
@@ -229,7 +291,7 @@ function facingAt(plan, id, t) {
     let sum = 0;
     const N = 6;
     for (let i = 0; i < N; i++)
-        sum += positionAt(plan, id, t - (i * 0.2) / N).dir;
+        sum += positionAt(plan, id, t - (i * 0.3) / N).dir;
     return sum / N;
 }
 
@@ -290,14 +352,6 @@ function rawPerformance(timeline, id, t) {
         const period = 5.2 + (seed % 3);
         const k = Math.floor((t + seed * 0.37) / period);
         const local = t + seed * 0.37 - k * period;
-        if (local > 2.2 && local < 3.4) {
-            out.pose =
-                (k + seed) % 2
-                    ? "scratch"
-                    : id === "raazu"
-                      ? "adjust"
-                      : "scratch";
-        }
         if (local > 0.6 && local < 1.4) out.yaw = 0.05;
     }
     if (pos.move) {
@@ -312,6 +366,12 @@ function rawPerformance(timeline, id, t) {
             out.expression = "scared";
             out.yaw = 0.5;
         }
+    }
+    if (pos.hidden || pos.move?.seg?.hide) {
+        out.pose = "scared";
+        if (["neutral", "happy", "curious"].includes(out.expression))
+            out.expression = "scared";
+        out.yaw = 0.3;
     }
     if (pos.held) {
         out.pose = "scared";
@@ -389,9 +449,9 @@ function lastKey(list, t) {
 
 function smoothYaw(timeline, id, t) {
     let sum = 0;
-    const N = 6;
+    const N = 8;
     for (let i = 0; i < N; i++)
-        sum += rawPerformance(timeline, id, t - (i * 0.14) / N).yaw;
+        sum += rawPerformance(timeline, id, t - (i * 0.24) / N).yaw;
     return sum / N;
 }
 
@@ -425,10 +485,11 @@ export function performanceAt(timeline, actor, t) {
     let walk = null;
     if (pos.move && (pos.move.type === "walk" || pos.move.type === "run")) {
         const run = pos.move.type === "run";
-        const stride = (run ? 190 : 120) * actor.scale;
+        // one cycle = two steps; a planted foot travels 2*amp per step
+        const stride = 4 * (run ? STEP_AMP.run : STEP_AMP.walk) * actor.scale;
         const dist = Math.abs(pos.x - pos.move.seg.x0);
         const p = pos.move.p;
-        const amt = run ? 1 : clamp01(Math.min(p / 0.12, (1 - p) / 0.12, 1));
+        const amt = clamp01(Math.min(p / 0.12, (1 - p) / 0.12, 1));
         walk = { phase: dist / stride, amt, run };
     }
     const vx =
@@ -439,22 +500,51 @@ export function performanceAt(timeline, actor, t) {
     let mouth = "X";
     if (raw.talking && ev) {
         const f = Math.floor((t - ev.start) * timeline.fps);
-        level = ev.envelope?.[f] ?? 0;
+        // low-pass the loudness so body/head bounce never jitters per frame
+        const env = ev.envelope || [];
+        let sum = 0;
+        let cnt = 0;
+        for (let k = -2; k <= 2; k++) {
+            const v = env[f + k];
+            if (v !== undefined) {
+                sum += v * (3 - Math.abs(k));
+                cnt += 3 - Math.abs(k);
+            }
+        }
+        level = cnt ? sum / cnt : 0;
         mouth = plan.visemes[ev.index]?.[f] || "X";
     }
 
     // eye darts (fast saccades between a few targets)
     const seed = hashString(id) % 89;
-    const dk = Math.floor((t + seed * 0.13) / 1.15);
-    const r = createRandom(seed * 1000 + dk);
-    const dart = raw.talking ? [0, 0] : [(r() - 0.5) * 0.7, (r() - 0.5) * 0.5];
+    const dartAt = (k) => {
+        const r = createRandom(seed * 1000 + k);
+        return [(r() - 0.5) * 0.6, (r() - 0.5) * 0.4];
+    };
+    const dp = (t + seed * 0.13) / 1.6;
+    const dk = Math.floor(dp);
+    const de = clamp01(((dp - dk) * 1.6) / 0.09); // ~90ms saccade, then hold
+    const d0 = dartAt(dk - 1);
+    const d1 = dartAt(dk);
+    const dart = raw.talking
+        ? [0, 0]
+        : [
+              d0[0] + (d1[0] - d0[0]) * easeInOut(de),
+              d0[1] + (d1[1] - d0[1]) * easeInOut(de),
+          ];
+    // blink-cover on expression changes hides the eye-shape swap
+    const cover =
+        exprSince < 0.14 && ei > 0 ? Math.sin((Math.PI * exprSince) / 0.14) : 0;
 
     const ov = overlayFor(plan, id, t);
     const dramatic = ov?.type === "dramatic" ? t - ov.t0 : null;
     let wind = 0;
     let trail = 0;
     if (dramatic !== null) {
-        wind = dramatic > DRAMATIC.punch ? 1 : 0;
+        wind =
+            dramatic > DRAMATIC.punch
+                ? clamp01((DRAMATIC.end - dramatic) / 0.45)
+                : 0;
         if (dramatic > DRAMATIC.eye && dramatic < DRAMATIC.eye + 0.55) {
             trail = 1 - (dramatic - DRAMATIC.eye) / 0.55;
         }
@@ -467,11 +557,14 @@ export function performanceAt(timeline, actor, t) {
         if (op.held?.holder === id) catchSince = op.held.since;
     }
 
+    const facing = facingAt(plan, id, t);
     return {
         x: pos.x,
         y: actor.y + pos.lift,
-        facing: facingAt(plan, id, t),
-        yaw: smoothYaw(timeline, id, t),
+        facing,
+        // turn through the front view so the left/right mirror is never visible
+        yaw: smoothYaw(timeline, id, t) * Math.min(1, Math.abs(facing) * 1.6),
+        behind: !!pos.hidden || !!pos.move?.seg?.behind,
         walk,
         vx,
         stopAge: pos.stopAge,
@@ -489,7 +582,10 @@ export function performanceAt(timeline, actor, t) {
         mouth,
         gesture: raw.talking ? raw.gesture || "explain" : null,
         look: [0.55 + dart[0], dart[1]],
-        blink: dramatic !== null ? 0 : blinkAt(plan.blinks[id], t),
+        blink:
+            dramatic !== null && dramatic < DRAMATIC.end - 0.1
+                ? 0
+                : Math.max(blinkAt(plan.blinks[id], t), cover),
         wind,
         trail,
         dramatic,

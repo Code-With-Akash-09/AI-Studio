@@ -272,9 +272,11 @@ export function frameState(timeline, t, frameIndex) {
         if (e.stage) Object.assign(stage, e.stage);
         if (e.beat === "reveal") {
             const since = t - e.start;
+            const dramaBeat = e.actions?.some((a) => a.type === "dramatic");
             flash = Math.max(
                 flash,
-                since < FLASH_DUR ? 1 - since / FLASH_DUR : 0,
+                (since < FLASH_DUR ? 1 - since / FLASH_DUR : 0) *
+                    (dramaBeat ? 0.3 : 1),
             );
             const hold = e.actions?.some((a) => a.type === "dramatic")
                 ? DRAMATIC.end - 0.15
@@ -325,7 +327,7 @@ export function frameState(timeline, t, frameIndex) {
     if (ev?.beat === "humor" && ev.reactionStart !== null) {
         const since = t - ev.reactionStart;
         if (since >= 0 && since < 0.4) {
-            const amp = 12 * (1 - since / 0.4);
+            const amp = 7 * (1 - since / 0.4);
             shake = [
                 Math.sin(frameIndex * 2.7) * amp,
                 Math.cos(frameIndex * 3.3) * amp,
@@ -377,11 +379,19 @@ export function frameState(timeline, t, frameIndex) {
             );
         } else {
             const p = (drama.s - DRAMATIC.eye) / (DRAMATIC.end - DRAMATIC.eye);
+            const act = {
+                s: 1.45 * (1 + p * 0.06),
+                x: f.x + layout.width * 0.04 * (a.slot === 1 ? -1 : 1),
+                y: f.headY + layout.height * 0.14,
+            };
+            // ease out of the action framing into the line's own shot (no jump)
+            const w = smooth(Math.max(0, (p - 0.55) / 0.45));
+            drama.fade = w;
             camera = clampCamera(
                 {
-                    s: 1.45 * (1 + p * 0.06),
-                    x: f.x + layout.width * 0.04 * (a.slot === 1 ? -1 : 1),
-                    y: f.headY + layout.height * 0.14,
+                    s: act.s + (camera.s - act.s) * w,
+                    x: act.x + (camera.x - act.x) * w,
+                    y: act.y + (camera.y - act.y) * w,
                 },
                 layout,
             );
