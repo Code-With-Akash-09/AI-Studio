@@ -49,6 +49,7 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
             reactionEnd: line.reaction ? end + reactionDur : null,
             nextStart: cursor,
             envelope: audio.envelope,
+            words: audio.words || [],
         };
     });
     const duration = cursor + OUTRO;
@@ -214,13 +215,27 @@ function cameraTarget(timeline, ev, t = 0) {
                 );
                 const mid =
                     xs.reduce((sum, v) => sum + v, 0) / Math.max(1, xs.length);
-                const s = 1.15;
+                // a face-fault reaction needs room to fall: ease the push-in
+                // out a little and lean toward the faller (no face off the edge)
+                let ff = 0;
+                let lean = 0;
+                if (
+                    ev.reaction?.pose === "facefault" &&
+                    ev.reactionStart !== null &&
+                    t > ev.reactionStart - 0.2
+                ) {
+                    const p = Math.min(1, (t - ev.reactionStart + 0.2) / 0.5);
+                    ff = p * p * (3 - 2 * p);
+                    const who = actors[ev.listenerId];
+                    if (who) lean = actorFocus(timeline, who, t).x - mid;
+                }
+                const s = 1.15 - 0.2 * ff;
                 const half = layout.width / (2 * s);
                 return {
                     s,
                     x: Math.min(
                         layout.width - half,
-                        Math.max(half, (mid + cx) / 2),
+                        Math.max(half, mid + lean * 0.45 * ff),
                     ),
                     y: layout.groundY - layout.height * 0.27,
                 };

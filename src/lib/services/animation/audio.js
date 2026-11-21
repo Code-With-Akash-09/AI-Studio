@@ -65,7 +65,14 @@ export async function synthesizeLine(text, voice, cacheDir) {
         `${voice.name}|${voice.rate}|${voice.pitch}|${text}`,
     ).toString(16);
     const out = path.join(cacheDir, `line-${key}.mp3`);
-    if (fs.existsSync(out) && fs.statSync(out).size > 1000) return out;
+    const wordsOut = wordsPath(out);
+    // re-synthesize old cache entries that have no word timings yet
+    if (
+        fs.existsSync(out) &&
+        fs.statSync(out).size > 1000 &&
+        fs.existsSync(wordsOut)
+    )
+        return out;
     let lastError = null;
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -76,6 +83,7 @@ export async function synthesizeLine(text, voice, cacheDir) {
                 voice.name,
                 voice.rate || "+0%",
                 voice.pitch || "+0Hz",
+                wordsOut,
             ]);
             if (fs.existsSync(out)) return out;
         } catch (error) {
@@ -112,6 +120,31 @@ export async function decodeAudio(filePath, sampleRate) {
         buf.byteOffset,
         Math.floor(buf.length / 4),
     );
+}
+
+const wordsPath = (mp3) => mp3.replace(/\.mp3$/, ".words.json");
+
+/**
+ * Edge TTS word timings for a synthesized line: [{ t, d, w }] in seconds from
+ * the start of the mp3, or [] when unavailable.
+ */
+export function readWordTimings(mp3) {
+    try {
+        const list = JSON.parse(fs.readFileSync(wordsPath(mp3), "utf8"));
+        return Array.isArray(list)
+            ? list.filter((w) => Number.isFinite(w.t) && Number.isFinite(w.d))
+            : [];
+    } catch {
+        return [];
+    }
+}
+
+/** Seconds of leading audio that trimSilence() removes (for word timing). */
+export function trimLead(samples, sampleRate, threshold = 0.01) {
+    let start = 0;
+    while (start < samples.length - 1 && Math.abs(samples[start]) < threshold)
+        start++;
+    return Math.max(0, start - Math.floor(sampleRate * 0.04)) / sampleRate;
 }
 
 /** Trim leading/trailing near-silence (Edge TTS pads ~0.1s each side). */

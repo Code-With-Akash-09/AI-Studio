@@ -7,7 +7,8 @@
  */
 import { createRandom, hashString } from "../random.js";
 import { classicGeometry, STEP_AMP } from "./classicRig.js";
-import { lineVisemes } from "./visemes.js";
+import { blendShapes, mouthShapeFor } from "./mouths.js";
+import { wordVisemes } from "./visemes.js";
 
 export const MARKS = {
     left: 0.27,
@@ -184,7 +185,6 @@ export function buildActing(dialogue, events, actors, layout) {
     }
     for (const o of overlays) end = Math.max(end, o.t1);
     plan.end = end;
-    plan.visemes = events.map((ev) => lineVisemes(ev.text, ev.envelope || []));
     plan.blinks = {};
     for (const id of dialogue.cast) plan.blinks[id] = blinkSchedule(id, 120);
     return plan;
@@ -455,6 +455,66 @@ function smoothYaw(timeline, id, t) {
     return sum / N;
 }
 
+/** Low-passed loudness of the line being spoken at frame f (0..1). */
+function levelAt(ev, f) {
+    const env = ev.envelope || [];
+    let sum = 0;
+    let cnt = 0;
+    for (let k = -2; k <= 2; k++) {
+        const v = env[f + k];
+        if (v !== undefined) {
+            sum += v * (3 - Math.abs(k));
+            cnt += 3 - Math.abs(k);
+        }
+    }
+    return cnt ? sum / cnt : 0;
+}
+
+/**
+ * Per-frame mouth shapes for one actor (built lazily once). Talking frames
+ * follow the Edge TTS word timings (closed between words, loudness only
+ * scales openness); everything else is the expression's resting mouth. The
+ * whole track is then cross-faded with a [1 2 1] kernel so every change —
+ * viseme, expression, start/end of a line — blends over two frames and the
+ * mouth never jumps. Non-speakers only change mouth with their expression.
+ */
+function mouthTrack(timeline, id) {
+    timeline._mouth ||= {};
+    if (timeline._mouth[id]) return timeline._mouth[id];
+    const fps = timeline.fps;
+    const plan = timeline.acting;
+    plan.visemes ||= timeline.events.map((ev) =>
+        wordVisemes(ev.text, ev.words, ev.envelope || [], fps),
+    );
+    const keys = keyframes(timeline, id);
+    const n = Math.ceil(timeline.duration * fps) + 2;
+    const raw = [];
+    for (let i = 0; i < n; i++) {
+        const t = i / fps;
+        const r = rawPerformance(timeline, id, t);
+        const ei = lastKey(keys.exprs, t);
+        const expression = ei >= 0 ? keys.exprs[ei].expression : "neutral";
+        let shape;
+        if (r.talking && r.ev) {
+            const f = Math.floor((t - r.ev.start) * fps);
+            const vis = plan.visemes[r.ev.index]?.[f] || "X";
+            shape = mouthShapeFor(expression, true, vis, levelAt(r.ev, f));
+        } else {
+            shape = mouthShapeFor(expression, false);
+        }
+        raw.push(shape);
+    }
+    const track = raw.map((s, i) =>
+        blendShapes([
+            [raw[Math.max(0, i - 1)], 1],
+            [s, 2],
+            [raw[Math.min(n - 1, i + 1)], 1],
+        ]),
+    );
+    timeline._mouth[id] = track;
+    return track;
+}
+
 function blinkAt(list, t) {
     for (const b of list) {
         const d = (t - b) / 0.16;
@@ -495,25 +555,20 @@ export function performanceAt(timeline, actor, t) {
     const vx =
         (positionAt(plan, id, t).x - positionAt(plan, id, t - 0.05).x) / 0.05;
 
-    // talking level + text-driven viseme
-    let level = 0;
-    let mouth = "X";
-    if (raw.talking && ev) {
-        const f = Math.floor((t - ev.start) * timeline.fps);
-        // low-pass the loudness so body/head bounce never jitters per frame
-        const env = ev.envelope || [];
-        let sum = 0;
-        let cnt = 0;
-        for (let k = -2; k <= 2; k++) {
-            const v = env[f + k];
-            if (v !== undefined) {
-                sum += v * (3 - Math.abs(k));
-                cnt += 3 - Math.abs(k);
-            }
-        }
-        level = cnt ? sum / cnt : 0;
-        mouth = plan.visemes[ev.index]?.[f] || "X";
-    }
+    // talking level (low-passed so body/head bounce never jitters)
+    const level =
+        raw.talking && ev
+            ? levelAt(ev, Math.floor((t - ev.start) * timeline.fps))
+            : 0;
+    const track = mouthTrack(timeline, id);
+    const mouthShape =
+        track[
+            Math.min(
+                track.length - 1,
+                Math.max(0, Math.round(t * timeline.fps)),
+            )
+        ];
+    const mouth = mouthShape.h > 0.05 ? "B" : "X";
 
     // eye darts (fast saccades between a few targets)
     const seed = hashString(id) % 89;
@@ -539,15 +594,11 @@ export function performanceAt(timeline, actor, t) {
     const ov = overlayFor(plan, id, t);
     const dramatic = ov?.type === "dramatic" ? t - ov.t0 : null;
     let wind = 0;
-    let trail = 0;
     if (dramatic !== null) {
         wind =
             dramatic > DRAMATIC.punch
                 ? clamp01((DRAMATIC.end - dramatic) / 0.45)
                 : 0;
-        if (dramatic > DRAMATIC.eye && dramatic < DRAMATIC.eye + 0.55) {
-            trail = 1 - (dramatic - DRAMATIC.eye) / 0.55;
-        }
     }
     // holder squash when catching
     let catchSince = null;
@@ -555,6 +606,16 @@ export function performanceAt(timeline, actor, t) {
         if (other === id) continue;
         const op = positionAt(plan, other, t);
         if (op.held?.holder === id) catchSince = op.held.since;
+    }
+
+    // talking gestures ease in at the line start and out after its end
+    let gesture = null;
+    let gestureAmt = 0;
+    if (ev && ev.speaker === id) {
+        gesture = ev.gesture || "explain";
+        const fin = clamp01((t - ev.start) / 0.25);
+        const fout = clamp01((ev.end + 0.3 - t) / 0.3);
+        gestureAmt = easeInOut(Math.min(fin, fout));
     }
 
     const facing = facingAt(plan, id, t);
@@ -576,18 +637,21 @@ export function performanceAt(timeline, actor, t) {
         prevPose,
         poseSince,
         expression,
+        prevExpression: ei > 0 ? keys.exprs[ei - 1].expression : expression,
         since: exprSince,
-        talking: raw.talking && level > 0.08,
+        // the whole line counts as talking; the mouth track closes in pauses
+        talking: raw.talking,
         level,
         mouth,
-        gesture: raw.talking ? raw.gesture || "explain" : null,
+        mouthShape,
+        gesture,
+        gestureAmt,
         look: [0.55 + dart[0], dart[1]],
         blink:
             dramatic !== null && dramatic < DRAMATIC.end - 0.1
                 ? 0
                 : Math.max(blinkAt(plan.blinks[id], t), cover),
         wind,
-        trail,
         dramatic,
     };
 }

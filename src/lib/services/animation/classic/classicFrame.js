@@ -67,14 +67,11 @@ export function buildClassicFrameSvg(timeline, frame, frameIndex) {
         const vis = visibility(layout, camera, actor, state);
         if (vis === "none") continue;
         const partial = vis === "partial";
-        if (state.trail > 0.02 && !partial) {
-            // motion trail: fading ghosts behind the action pose
-            const dir = (state.facing ?? 1) >= 0 ? 1 : -1;
-            for (let k = 3; k >= 1; k--) {
-                chars += `<g opacity="${n(0.22 * state.trail * (1 - k / 4))}">${renderClassicCharacter(actor.character, { ...state, x: state.x - dir * k * 46 * state.trail, uid: `${uid}g${k}` })}</g>`;
-            }
-        }
-        const body = renderClassicCharacter(actor.character, { ...state, uid });
+        const body = renderClassicCharacter(actor.character, {
+            ...state,
+            fallDir: fallDirection(layout, camera, actor, state),
+            uid,
+        });
         chars += partial ? anchorClips(body) : body;
     }
     svg += `<g transform="${parallax(layout, camera, shake, 1)}">${chars}</g>`;
@@ -127,6 +124,23 @@ function flattenOpacity(svg) {
 }
 
 /**
+ * Face-fault falls backward (away from the facing direction) unless that
+ * would carry the head off the canvas edge (e.g. vertical Shorts framing);
+ * then the character face-plants forward instead. World-space sign (+1 = +x).
+ */
+function fallDirection(layout, camera, actor, state) {
+    const dir = (state.facing ?? 1) >= 0 ? 1 : -1;
+    if (state.pose !== "facefault" && state.prevPose !== "facefault")
+        return -dir;
+    const g = classicGeometry(actor.character.classic);
+    const k = (state.scale ?? 1) * camera.s;
+    const sx = (state.x - camera.x) * camera.s + layout.width / 2;
+    const reach = (Math.abs(g.headCY) + g.R * 1.1 - g.R * 1.7) * k + 20;
+    const room = -dir > 0 ? layout.width - sx : sx;
+    return room >= reach ? -dir : dir;
+}
+
+/**
  * "none" if the character is entirely off-canvas, "partial" if its face (where all
  * the rig's clip-paths live) crosses the canvas edge, else "full".
  */
@@ -142,8 +156,10 @@ function visibility(layout, camera, actor, state) {
         toX(state.x - g.R * 2.6 * k) > W + 40
     )
         return "none";
-    const x0 = toX(state.x - g.R * 1.1 * k);
-    const x1 = toX(state.x + g.R * 1.1 * k);
+    // a face-faulted head lies beside the feet: widen the face band
+    const band = state.pose === "facefault" ? 2.6 : 1.1;
+    const x0 = toX(state.x - g.R * band * k);
+    const x1 = toX(state.x + g.R * band * k);
     const y0 = toY(state.y + (g.headCY - g.R * 1.1) * k);
     if (x1 < -40 || x0 > W + 40 || toY(state.y + 60) < -40 || y0 > H + 40)
         return "none";

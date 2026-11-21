@@ -3,11 +3,13 @@
  * thick uniform dark outlines, flat bright colours, dot/oval eyes with a
  * shine, big open mouths, rosy cheeks — animated with:
  *
- *  - head turns (front → 3/4 → profile) by projecting facial features on a sphere
+ *  - head turns limited to front + slight 3/4 (MAX_YAW): facial features are
+ *    head-local, projected on a sphere and clipped to the face outline
  *  - walk / run cycles (bob, arm swing, lean, speed-blur legs when running)
  *  - eased pose in-betweens with anticipation, overshoot and squash-and-stretch
  *  - talking gestures (explain / wave / fist / nod), head nods on syllables
- *  - text-driven mouth shapes (X M A B C E O U F)
+ *  - one parametric mouth (mouths.js) with a fixed upper-lip anchor, driven by
+ *    Edge TTS word timings (visemes X M A B C E O U F, blended frame to frame)
  *  - secondary motion: hair, scarf, gamchha, coat tails and kurta hem follow-through
  *  - comedy reactions (jump-up shock, sweat drop, gloom, dizzy swirls, tears,
  *    face-fault) and an "intense" dramatic eye for reveal beats
@@ -19,7 +21,10 @@
  * Coordinates: feet at (0, 0), up is negative y, facing +x before flip.
  */
 
+import { mouthShapeFor } from "./mouths.js";
+
 const n = (v) => Math.round(v * 10) / 10;
+
 export const OUT = "#2A2233";
 const LW = 7;
 /** Classic characters are drawn a little larger on stage (they are short). */
@@ -27,8 +32,11 @@ export const CLASSIC_SCALE = 1.18;
 const POSE_BLEND = 0.34;
 /** Foot travel (local px, either side of the hip) per walk / run step. */
 export const STEP_AMP = { walk: 40, run: 52 };
+/** Max head yaw: front view plus a slight 3/4 (±0.3 → ±19.5°). */
+export const MAX_YAW = 0.3;
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
+const easeInOut = (p) => p * p * (3 - 2 * p);
 const backOut = (p) => {
     const c = 1.9;
     const x = clamp01(p) - 1;
@@ -229,12 +237,15 @@ function poseHand(pose, side, C, g, t) {
     switch (pose) {
         case "point":
             return side > 0 ? [ax + 112, sy - 58] : idle;
+        case "adjust": // (glasses-adjust read as a face-cover: same as think)
         case "think":
+            // knuckles under the chin, beside the mouth (never covering it)
             return side > 0
-                ? [R * 0.3, g.headCY + R * 0.8]
+                ? [R * 0.62, g.headCY + R * 0.98]
                 : [ax * 0.1, sy + 66];
         case "scared":
-            return [side * R * 0.8, g.headCY + R * 0.45];
+            // hands at the cheek edges, clear of eyes, ears and mouth
+            return [side * R * 1.02, g.headCY + R * 0.58];
         case "laugh":
             // both hands clutching the belly
             return [side * C.bodyW * 0.16, g.bodyBottom - C.bodyH * 0.22];
@@ -247,11 +258,10 @@ function poseHand(pose, side, C, g, t) {
         case "action":
             return side > 0 ? [ax + 150, sy - 34] : [-(ax + 70), sy + 26];
         case "scratch":
+            // hand behind the side of the head (arm drawn behind the head)
             return side > 0
-                ? [R * 0.35 + Math.sin(t * 12) * 6, g.headCY - R * 0.62]
+                ? [R * 0.86, g.headCY - R * 0.5 + Math.sin(t * 9) * 4]
                 : idle;
-        case "adjust":
-            return side > 0 ? [R * 0.14, g.headCY + R * 0.12] : idle;
         case "facefault":
             return [
                 side * (ax + 36) + Math.sin(t * 9 + side) * 10,
@@ -277,16 +287,27 @@ function handTarget(C, g, s, side) {
     ];
     const ax = g.shoulderX;
     const sy = g.shoulderY;
-    // talking gestures layered on an idle pose
-    if (s.talking && pose === "idle" && s.gesture) {
+    // talking gestures layered on an idle pose; faded in/out (gestureAmt)
+    // and faded against pose changes so the hands never snap
+    const idleW =
+        pose === "idle"
+            ? (s.prevPose || pose) === "idle"
+                ? 1
+                : clamp01(p)
+            : (s.prevPose || pose) === "idle"
+              ? 1 - clamp01(p)
+              : 0;
+    const gw = (s.gesture ? (s.gestureAmt ?? (s.talking ? 1 : 0)) : 0) * idleW;
+    if (gw > 0.001) {
         const lv = 0.6 + 0.4 * (s.level || 0);
+        let G = null;
         switch (s.gesture) {
             case "wave":
-                if (side > 0) H = [ax + 60 + Math.sin(t * 14) * 26, sy - 92];
+                if (side > 0) G = [ax + 60 + Math.sin(t * 12) * 22, sy - 92];
                 break;
             case "fist":
                 if (side > 0)
-                    H = [
+                    G = [
                         ax + 44,
                         sy - 30 - Math.abs(Math.sin(t * 6)) * 45 * lv,
                     ];
@@ -294,11 +315,12 @@ function handTarget(C, g, s, side) {
             case "nod":
                 break;
             default: // explain: open hands at chest height, moving with the speech
-                H = [
+                G = [
                     side * (ax + 34) + Math.sin(t * 5 + side) * 14 * lv,
                     sy + 28 - Math.abs(Math.sin(t * 4 + side * 0.8)) * 34 * lv,
                 ];
         }
+        if (G) H = [H[0] + (G[0] - H[0]) * gw, H[1] + (G[1] - H[1]) * gw];
     }
     // walk / run arm swing
     if (s.walk) {
@@ -559,7 +581,8 @@ function drawHairFront(C, R, t, yaw, m, wind) {
 function eyeMode(expression, talking) {
     switch (expression) {
         case "happy":
-            return talking ? "open" : "arc";
+            // same eyes while talking and in pauses (no swap at a line's end)
+            return "open";
         case "laughing":
             return "chevron";
         case "shocked":
@@ -663,7 +686,7 @@ function drawEyes(C, R, s, uid, proj) {
             svg += `<path d="M ${n(cx - erx * 1.08)} ${n(ey - ery * 0.5 - side * 6)} L ${n(cx + erx * 1.08)} ${n(ey - ery * 0.5 + side * 6)}" ${stroke(10)}/>`;
             continue;
         }
-        const tremble = mode === "small" ? Math.sin(t * 47 + side) * 2.5 : 0;
+        const tremble = mode === "small" ? Math.sin(t * 14 + side) * 1.2 : 0;
         const prx = erx * (mode === "small" ? 0.34 : 0.52);
         const pry = ery * (mode === "small" ? 0.34 : 0.56);
         svg += `<ellipse cx="${n(px + tremble)}" cy="${n(py)}" rx="${n(prx)}" ry="${n(pry)}" fill="${OUT}"/>`;
@@ -678,7 +701,7 @@ function drawEyes(C, R, s, uid, proj) {
     // brows (with talking eyebrow lifts)
     const by = ey - ry - R * 0.14;
     const bl = R * 0.14;
-    const lift = {
+    const LIFT = {
         neutral: [0, 0],
         happy: [6, 6],
         laughing: [10, 10],
@@ -689,186 +712,110 @@ function drawEyes(C, R, s, uid, proj) {
         suspicious: [-10, 6],
         dizzy: [4, 4],
         intense: [-16, 8],
-    }[expression] || [0, 0];
+    };
+    // brows ease between expressions (~0.15s) instead of jumping
+    const be = easeInOut(clamp01((s.since ?? 10) / 0.15));
+    const l0 = LIFT[s.prevExpression || expression] || [0, 0];
+    const l1 = LIFT[expression] || [0, 0];
+    const lift = [l0[0] + (l1[0] - l0[0]) * be, l0[1] + (l1[1] - l0[1]) * be];
     const talkLift = s.talking ? Math.max(0, (s.level || 0) - 0.55) * 18 : 0;
     for (const v of visible) {
         const { side, cx, k } = v;
         const ib = bl * k;
         const inner = [cx - side * ib, by - lift[0] - talkLift];
         const outer = [cx + side * ib, by - lift[1] - talkLift * 0.5];
-        if (expression === "curious" && side < 0) inner[1] = by + 2;
-        svg += `<path d="M ${n(inner[0])} ${n(inner[1])} Q ${n(cx)} ${n(Math.min(inner[1], outer[1]) - 8)} ${n(outer[0])} ${n(outer[1])}" fill="none" ${stroke(expression === "intense" ? 11 : 9)}/>`;
+        if (expression === "curious" && side < 0)
+            inner[1] += (by + 2 - inner[1]) * be;
+        svg += `<path d="M ${n(inner[0])} ${n(inner[1])} Q ${n(cx)} ${n(Math.min(inner[1], outer[1]) - 8)} ${n(outer[0])} ${n(outer[1])}" fill="none" ${stroke(9)}/>`;
     }
+    // tears sit on top of the face clip (they may spill past the outline)
+    let extra = "";
     if (expression === "crying") {
         for (const v of visible) {
             const side = v.side;
-            const sx = v.cx + side * rx * 0.4;
-            const wob = Math.sin(t * 16 + side) * 6;
-            svg += limb(
-                `M ${n(sx)} ${n(ey + 6)} Q ${n(v.cx + side * rx * 2.4)} ${n(ey - ry * 0.6 + wob)} ${n(v.cx + side * rx * 3.1)} ${n(ey + R * 0.95)}`,
+            const sx = v.cx + side * rx * 0.3;
+            const wob = Math.sin(t * 6 + side) * 3;
+            extra += limb(
+                `M ${n(sx)} ${n(ey + ry * 0.6)} Q ${n(v.cx + side * rx * 1.2)} ${n(ey + R * 0.35 + wob)} ${n(v.cx + side * rx * 1.1)} ${n(ey + R * 0.72)}`,
                 "#8ED8FF",
-                16,
+                10,
                 3.5,
             );
-            for (let i = 0; i < 3; i++) {
-                const p = (t * 1.8 + i / 3) % 1;
-                const dx = v.cx + side * rx * (1.5 + p * 2.4);
-                const dy = ey - ry * 0.4 + p * p * R * 0.9;
-                svg += `<circle cx="${n(dx)}" cy="${n(dy)}" r="7" fill="#8ED8FF" ${stroke(3)}/>`;
-            }
+            const p = (t * 1.2 + (side > 0 ? 0.5 : 0)) % 1;
+            extra += `<circle cx="${n(v.cx + side * rx * 1.1)}" cy="${n(ey + R * 0.76 + p * R * 0.25)}" r="${n(6 * (1 - p * 0.5))}" fill="#8ED8FF" ${stroke(3)}/>`;
         }
     }
     if (expression === "laughing") {
         for (const v of visible) {
             const side = v.side;
-            svg += `<path d="M ${n(v.cx + side * rx * 1.1)} ${n(ey + 2)} c ${n(side * 6)} 10 ${n(side * 8)} 18 0 22 c ${n(-side * 8)} -4 ${n(-side * 6)} -12 0 -22 Z" fill="#8ED8FF" ${stroke(3)}/>`;
+            extra += `<path d="M ${n(v.cx + side * rx * 1.1)} ${n(ey + 2)} c ${n(side * 6)} 10 ${n(side * 8)} 18 0 22 c ${n(-side * 8)} -4 ${n(-side * 6)} -12 0 -22 Z" fill="#8ED8FF" ${stroke(3)}/>`;
         }
     }
-    return { svg, ex, ey, rx, ry, visible };
+    return { svg, extra, ex, ey, rx, ry, visible };
 }
 
-function mouthPath(shape, open, w, R) {
-    switch (shape) {
-        case "round": {
-            const rx = R * (0.08 + 0.08 * open);
-            const ry = R * (0.08 + 0.13 * open);
-            return `M 0 0 m ${n(-rx)} ${n(ry)} a ${n(rx)} ${n(ry)} 0 1 0 ${n(rx * 2)} 0 a ${n(rx)} ${n(ry)} 0 1 0 ${n(-rx * 2)} 0 Z`;
-        }
-        case "pucker": {
-            const rx = R * 0.055;
-            const ry = R * 0.075;
-            return `M 0 0 m ${n(-rx)} ${n(ry)} a ${n(rx)} ${n(ry)} 0 1 0 ${n(rx * 2)} 0 a ${n(rx)} ${n(ry)} 0 1 0 ${n(-rx * 2)} 0 Z`;
-        }
-        case "wide": {
-            const ww = w * 1.25;
-            const h = R * (0.08 + 0.1 * open);
-            return `M ${n(-ww)} 0 Q 0 ${n(-h * 0.25)} ${n(ww)} 0 Q ${n(ww * 0.92)} ${n(h)} 0 ${n(h * 1.05)} Q ${n(-ww * 0.92)} ${n(h)} ${n(-ww)} 0 Z`;
-        }
-        case "wail": {
-            const ww = w * 1.1;
-            const h = R * (0.16 + 0.22 * open);
-            return `M ${n(-ww)} ${n(h * 0.25)} Q 0 ${n(-h * 0.35)} ${n(ww)} ${n(h * 0.25)} L ${n(ww * 0.7)} ${n(h)} Q 0 ${n(h * 1.15)} ${n(-ww * 0.7)} ${n(h)} Z`;
-        }
-        default: {
-            const ww = w * (1 + 0.25 * open);
-            const h = R * (0.1 + 0.3 * open);
-            return `M ${n(-ww)} 0 Q 0 ${n(ww * 0.12)} ${n(ww)} 0 C ${n(ww)} ${n(h * 0.75)} ${n(ww * 0.55)} ${n(h)} 0 ${n(h)} C ${n(-ww * 0.55)} ${n(h)} ${n(-ww)} ${n(h * 0.75)} ${n(-ww)} 0 Z`;
-        }
-    }
-}
-
+/**
+ * Parametric mouth (see mouths.js). The anchor is the centre of the upper
+ * lip at (mouth x, my) for EVERY shape, the jaw only opens downward from it,
+ * and the outline width is constant — so swapping or blending shapes never
+ * moves the mouth on the face.
+ */
 function drawMouth(C, R, s, uid, proj) {
-    const { expression = "neutral", talking = false, mouth = "X" } = s;
+    const sh =
+        s.mouthShape ||
+        mouthShapeFor(
+            s.expression || "neutral",
+            !!s.talking,
+            s.mouth || "X",
+            s.level ?? 0.6,
+        );
     const my = R * (C.eyes === "round" ? 0.5 : 0.54);
-    const P = proj(R * 0.04);
+    const P = proj(0);
     const kx = 0.55 + 0.45 * Math.max(0, P.sc);
-    const w = R * 0.22;
-    let shape = "d";
-    let open = 0;
-    let teeth = false;
-    let lip = false;
-    if (talking) {
-        switch (mouth) {
-            case "M":
-                shape = "pressed";
-                break;
-            case "F":
-                shape = "wide";
-                open = 0.25;
-                teeth = true;
-                lip = true;
-                break;
-            case "A":
-                open = 0.35;
-                break;
-            case "B":
-                open = 0.65;
-                break;
-            case "C":
-                open = 1;
-                break;
-            case "E":
-                shape = "wide";
-                open = 0.6;
-                teeth = true;
-                break;
-            case "O":
-                shape = "round";
-                open = 0.75;
-                break;
-            case "U":
-                shape = "pucker";
-                open = 0.4;
-                break;
-            default:
-                shape = "line";
-        }
-    }
-    switch (expression) {
-        case "happy":
-            if (shape === "d" || shape === "line" || !talking) {
-                shape = "d";
-                open = Math.max(open, talking ? 0.3 : 0.5);
-            }
-            break;
-        case "laughing":
-            shape = "d";
-            open = Math.max(open, 0.85);
-            break;
-        case "shocked":
-            if (!talking || shape !== "pressed") {
-                shape = "round";
-                open = Math.max(open, 0.9);
-            }
-            break;
-        case "crying":
-            shape = "wail";
-            open = Math.max(open, 0.75);
-            break;
-        case "curious":
-            if (!talking) {
-                shape = "round";
-                open = 0.15;
-            }
-            break;
-        case "dizzy":
-        case "scared":
-            if (!talking) shape = "wavy";
-            break;
-        case "intense":
-            if (!talking) shape = "pressed";
-            break;
-        default:
-            if (!talking) shape = "line";
-    }
+    const W = sh.w * R * 0.22;
+    const H = Math.max(0, sh.h) * R;
+    const c = sh.smile * R * 0.035; // corner lift (negative = frown)
+    const mid = sh.smile * W * 0.22; // closed-line sag at the centre (smile)
+    const sk = sh.smirk || 0;
+    // upper-lip curve y(u), u in [-1, 1]
+    const lipY = (u) =>
+        mid * (1 - u * u) -
+        c * u * u +
+        sk * (-7 * u + 2) +
+        (sh.wavy || 0) * Math.sin(u * Math.PI * 2.5) * 5;
+    const lw = 7 + 2 * (sh.press || 0);
     const g = `<g transform="translate(${n(P.x * 0.92)} ${n(my)}) scale(${n(kx * 100) / 100} 1)">`;
-    if (shape === "wavy") {
-        return `${g}<path d="M ${n(-w)} 0 q ${n(w / 4)} -12 ${n(w / 2)} 0 t ${n(w / 2)} 0 t ${n(w / 2)} 0 t ${n(w / 2)} 0" fill="none" ${stroke(7)}/></g>`;
+    let line = "";
+    for (let i = 0; i <= 12; i++) {
+        const u = -1 + i / 6;
+        line += `${i ? "L" : "M"} ${n(u * W)} ${n(lipY(u))} `;
     }
-    if (shape === "pressed") {
-        return `${g}<path d="M ${n(-w * 0.55)} 2 L ${n(w * 0.55)} 2" ${stroke(9)}/></g>`;
+    if (H < R * 0.012) {
+        return `${g}<path d="${line}" fill="none" ${stroke(lw)}/></g>`;
     }
-    if (shape === "line") {
-        if (expression === "suspicious") {
-            return `${g}<path d="M ${n(-w * 0.8)} 6 Q 0 10 ${n(w * 0.8)} -8" fill="none" ${stroke(7)}/></g>`;
-        }
-        return `${g}<path d="M ${n(-w * 0.85)} 0 Q 0 ${n(w * 0.55)} ${n(w * 0.85)} 0" fill="none" ${stroke(7)}/></g>`;
+    // open: upper lip (arched up a little for round shapes) + jaw below
+    const r = sh.round || 0;
+    const top = -H * 0.32 * r;
+    let d = "";
+    for (let i = 0; i <= 12; i++) {
+        const u = -1 + i / 6;
+        d += `${i ? "L" : "M"} ${n(u * W)} ${n(lipY(u) + top * (1 - u * u))} `;
     }
+    const yc = lipY(1);
+    const yl = lipY(-1);
+    const bot = H + mid * 0.5;
+    const side = 0.72 - 0.17 * r;
+    d += `C ${n(W)} ${n(yc + H * side)} ${n(W * (0.55 + 0.1 * r))} ${n(bot)} 0 ${n(bot)} C ${n(-W * (0.55 + 0.1 * r))} ${n(bot)} ${n(-W)} ${n(yl + H * side)} ${n(-W)} ${n(yl)} Z`;
     const clip = `${uid}-mouth`;
-    const d = mouthPath(shape, open, w, R);
     let svg = `${g}<defs><clipPath id="${clip}"><path d="${d}"/></clipPath></defs>`;
     svg += `<path d="${d}" fill="#7A1A2C"/>`;
     svg += `<g clip-path="url(#${clip})">`;
-    if (shape !== "pucker") {
-        svg += `<ellipse cx="0" cy="${n(R * 0.34)}" rx="${n(w * 0.7)}" ry="${n(R * 0.14)}" fill="#FF7A8A"/>`;
-    }
-    if (shape === "d" || teeth) {
-        svg += `<rect x="${n(-w * 1.5)}" y="-8" width="${n(w * 3)}" height="${n(R * 0.05 + 8)}" fill="#FFFFFF"/>`;
-    }
+    if (H > R * 0.06)
+        svg += `<ellipse cx="0" cy="${n(bot)}" rx="${n(W * 0.62)}" ry="${n(H * 0.42)}" fill="#FF7A8A"/>`;
+    if ((sh.teeth || 0) > 0.05)
+        svg += `<rect x="${n(-W * 1.2)}" y="${n(Math.min(yl, yc, mid) - 8)}" width="${n(W * 2.4)}" height="${n(Math.min(H * 0.38, R * 0.06) + 8 + Math.max(0, mid))}" fill="#FFFFFF" fill-opacity="${n(Math.min(1, sh.teeth))}"/>`;
     svg += "</g>";
-    svg += `<path d="${d}" fill="none" ${stroke(6)}/>`;
-    if (lip)
-        svg += `<path d="M ${n(-w * 0.8)} ${n(R * 0.1)} Q 0 ${n(R * 0.05)} ${n(w * 0.8)} ${n(R * 0.1)}" fill="none" ${stroke(6)}/>`;
+    svg += `<path d="${d}" fill="none" ${stroke(7)}/>`;
     return `${svg}</g>`;
 }
 
@@ -984,50 +931,40 @@ function drawSymbols(R, s, uid) {
 }
 
 function drawHead(C, R, s, uid, m) {
-    const yaw = Math.max(-1, Math.min(1, s.yaw || 0));
+    // front + slight 3/4 only: features stay inside the outline (soft cap)
+    const yaw = MAX_YAW * Math.tanh((s.yaw || 0) / MAX_YAW);
     const proj = projector(R, yaw);
     const t = s.t || 0;
     const wind = s.wind || 0;
     let head = drawHairBack(C, R);
     // ears: far side peeks behind the face, near side sits on the face in profile
-    const earsFront = [];
+    // ears always sit behind the face outline and slide with the yaw
     for (const side of [-1, 1]) {
         const P = proj(side * R * 0.98);
-        const deg = Math.abs((P.a * 180) / Math.PI);
-        const ear = `<circle cx="${n(P.x)}" cy="${n(R * 0.12)}" r="${n(R * 0.17)}" fill="${C.skin}" ${stroke()}/>`;
-        if (deg < 72) earsFront.push(ear);
-        else if (deg < 112) head += ear;
+        head += `<circle cx="${n(side * R * 0.9 + (P.x - side * R * 0.98) * 0.5)}" cy="${n(R * 0.12)}" r="${n(R * 0.17)}" fill="${C.skin}" ${stroke()}/>`;
     }
     const round = C.body === "round";
     const faceRx = R * (round ? 1.05 : 1);
     const faceRy = R * (round ? 0.98 : 1);
     head += `<ellipse cx="0" cy="0" rx="${n(faceRx)}" ry="${n(faceRy)}" fill="${C.skin}" ${stroke()}/>`;
-    // back-of-head hair when turned
-    const turn = Math.sin((Math.abs(yaw) * 65 * Math.PI) / 180);
-    if (turn > 0.3) {
-        const clip = `${uid}-back`;
-        const dir = Math.sign(yaw);
-        const bx = -dir * faceRx;
-        const w = faceRx * 0.62 * turn;
-        head += `<defs><clipPath id="${clip}"><ellipse cx="0" cy="0" rx="${n(faceRx)}" ry="${n(faceRy)}"/></clipPath></defs>`;
-        head += `<path d="M ${n(bx)} ${n(-R)} L ${n(bx + dir * w)} ${n(-R)} Q ${n(bx + dir * w * 1.15)} ${n(R * 0.15)} ${n(bx + dir * w * 0.4)} ${n(R * 0.45)} L ${n(bx)} ${n(R * 0.45)} Z" fill="${C.hairColor}" clip-path="url(#${clip})"/>`;
-        head += `<ellipse cx="0" cy="0" rx="${n(faceRx)}" ry="${n(faceRy)}" fill="none" ${stroke()}/>`;
-    }
-    head += earsFront.join("");
     const rosy = ["laughing", "happy", "crying", "scared"].includes(
         s.expression,
     )
         ? 0.75
         : 0.5;
+    // every facial feature is head-local and clipped to the face shape
+    const faceClip = `${uid}-face`;
+    head += `<defs><clipPath id="${faceClip}"><ellipse cx="0" cy="0" rx="${n(faceRx - 2)}" ry="${n(faceRy - 2)}"/></clipPath></defs><g clip-path="url(#${faceClip})">`;
     for (const side of [-1, 1]) {
         const P = proj(side * R * 0.62);
         if (P.sc < 0.2) continue;
         head += `<ellipse cx="${n(P.x)}" cy="${n(R * 0.36)}" rx="${n(R * 0.15 * (0.5 + 0.5 * P.sc))}" ry="${n(R * 0.09)}" fill="#FF7E96" opacity="${rosy}"/>`;
     }
+    head += "</g>";
     head += drawHairFront(C, R, t, yaw, m, wind);
     const eyes = drawEyes(C, R, s, uid, proj);
     eyes.R = R;
-    head += eyes.svg;
+    head += `<g clip-path="url(#${faceClip})">${eyes.svg}`;
     const N = proj(R * 0.05);
     const bump = Math.abs(Math.sin((yaw * 65 * Math.PI) / 180));
     const nx = N.x + Math.sign(yaw || 1) * R * 0.07 * bump;
@@ -1038,6 +975,8 @@ function drawHead(C, R, s, uid, m) {
               ? `<path d="M ${n(N.x)} ${n(R * 0.2)} Q ${n(nx + Math.sign(yaw) * R * 0.08)} ${n(R * 0.3)} ${n(N.x)} ${n(R * 0.38)}" fill="${C.skin}" ${stroke(5)}/>`
               : `<path d="M ${n(nx)} ${n(R * 0.24)} Q ${n(nx + R * 0.12)} ${n(R * 0.32)} ${n(nx)} ${n(R * 0.39)}" fill="none" ${stroke(5)}/>`;
     head += drawMouth(C, R, s, uid, proj);
+    head += "</g>";
+    head += eyes.extra;
     head += drawGlasses(C, eyes, clamp01(s.glint || 0), proj);
     head += drawSymbols(R, s, uid);
     return head;
@@ -1059,9 +998,7 @@ export function renderClassicCharacter(ch, state = {}) {
     const m = motion(C, g, s);
 
     const head = drawHead(C, R, s, uid, m);
-    const armsOverHead = ["scared", "think", "scratch", "adjust"].includes(
-        pose,
-    );
+    const armsOverHead = ["scared", "think", "adjust"].includes(pose);
     const backArm = drawArm(C, g, s, -1);
     const frontArm = drawArm(C, g, s, 1);
 
@@ -1088,13 +1025,15 @@ export function renderClassicCharacter(ch, state = {}) {
     let svg = `<ellipse cx="${n(x)}" cy="${n(groundY)}" rx="${n(shadowW)}" ry="${n(13 * scale)}" fill="${OUT}" fill-opacity="0.16"/>`;
     svg += `<g transform="translate(${n(x + m.dx * scale)} ${n(y + m.dy * scale)}) scale(${n(fs * m.sx * 1000) / 1000} ${n(scale * m.sy * 1000) / 1000}) rotate(${n(m.lean)})">`;
     if (m.fall > 0.001) {
-        svg += `<g transform="translate(${n(R * 1.7 * m.fall)} ${n(-R * 0.98 * m.fall)}) rotate(${n(-88 * m.fall)})">${body}</g>`;
+        // fd: local fall direction (-1 = backward, the default; +1 = forward)
+        const fd = state.fallDir ? Math.sign(state.fallDir) * dir : -1;
+        svg += `<g transform="translate(${n(-fd * R * 1.7 * m.fall)} ${n(-R * 0.98 * m.fall)}) rotate(${n(fd * 88 * m.fall)})">${body}</g>`;
         const since = (s.poseSince ?? 0) - 0.32;
         if (pose === "facefault" && since > 0) {
             const puff = clamp01(1 - since / 0.6);
             if (puff > 0) {
                 for (const k of [-1, 0.2, 1]) {
-                    svg += `<circle cx="${n(-R * 2 * k + R * 1.2)}" cy="${n(-12 - puff * 20)}" r="${n(18 + (1 - puff) * 16)}" fill="#FFFFFF" fill-opacity="${n(puff * 0.9)}" ${stroke(4)} stroke-opacity="${n(puff * 0.6)}"/>`;
+                    svg += `<circle cx="${n((-R * 2 * k + R * 1.2) * -fd)}" cy="${n(-12 - puff * 20)}" r="${n(18 + (1 - puff) * 16)}" fill="#FFFFFF" fill-opacity="${n(puff * 0.9)}" ${stroke(4)} stroke-opacity="${n(puff * 0.6)}"/>`;
                 }
             }
         }

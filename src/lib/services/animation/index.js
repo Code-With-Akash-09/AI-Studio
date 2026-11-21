@@ -31,7 +31,9 @@ import {
     mixInto,
     placeholderEnvelope,
     synthBoing,
+    readWordTimings,
     synthesizeLine,
+    trimLead,
     trimSilence,
     writeWav,
 } from "./audio.js";
@@ -56,11 +58,18 @@ async function prepareLineAudio(dialogue, { tts, cacheDir, fps, sr, onLog }) {
             ? await synthesizeLine(line.text, voice, cacheDir)
             : null;
         if (mp3) {
-            const samples = trimSilence(await decodeAudio(mp3, sr), sr);
+            const raw = await decodeAudio(mp3, sr);
+            const samples = trimSilence(raw, sr);
+            const lead = trimLead(raw, sr);
             result.push({
                 samples,
                 duration: samples.length / sr,
                 envelope: amplitudeEnvelope(samples, sr, fps),
+                // Edge TTS word boundaries, shifted into the trimmed clip
+                words: readWordTimings(mp3).map((w) => ({
+                    ...w,
+                    t: w.t - lead,
+                })),
                 placeholder: false,
             });
         } else {
@@ -217,6 +226,31 @@ async function mixSoundtrack(timeline, lineAudio, sr) {
     for (let i = 0; i < total.length; i++)
         total[i] = Math.tanh(total[i] * 1.1) / Math.tanh(1.1);
     return { samples: total, used, cues: mixed };
+}
+
+/**
+ * Build the exact timeline a render would use (TTS from cache), without
+ * rendering video. Used by the rig QA tool.
+ * @param {object} input - dialogue script
+ * @param {{ dimension?: string, cacheDir?: string, tts?: boolean }} [opts]
+ */
+export async function buildCharacterTimeline(input, opts = {}) {
+    const dialogue = normalizeDialogue(input);
+    if (opts.dimension)
+        dialogue.dimension =
+            opts.dimension === "vertical" ? "vertical" : "horizontal";
+    const { width, height } = ANIMATION_DIMENSIONS[dialogue.dimension];
+    const fps = dialogue.style !== "flat" ? ANIME_FPS : ANIMATION_FPS;
+    const lineAudio = await prepareLineAudio(dialogue, {
+        tts: opts.tts !== false,
+        cacheDir:
+            opts.cacheDir ||
+            path.join(config.tempDir, "animation", "tts-cache"),
+        fps,
+        sr: ANIMATION_SAMPLE_RATE,
+        onLog: () => {},
+    });
+    return buildTimeline(dialogue, lineAudio, { width, height, fps });
 }
 
 /**
