@@ -5,8 +5,6 @@
     "style": "classic",
     "dimension": "horizontal",
     "background": "gali_day",
-    "bgm": "humorous",
-    "bgmVolume": 0.14,
     "cast": ["raazu", "golu"],
     "lines": [
         {
@@ -16,7 +14,10 @@
             "expression": "curious",
             "pose": "point",
             "look": "camera",
-            "listener": { "expression": "scared", "pose": "idle" },
+            "listener": {
+                "expression": "scared",
+                "pose": "idle"
+            },
             "camera": "wide"
         },
         {
@@ -25,7 +26,10 @@
             "roman": "Bhai, zaroor koi bhoot raat ko cricket khelta hai!",
             "expression": "scared",
             "pose": "scared",
-            "listener": { "expression": "neutral", "pose": "idle" },
+            "listener": {
+                "expression": "neutral",
+                "pose": "idle"
+            },
             "camera": "speaker"
         },
         {
@@ -34,7 +38,10 @@
             "roman": "Bhoot? Golu, bhoot ko toh balla pakadna bhi nahin aata.",
             "expression": "suspicious",
             "pose": "hips",
-            "listener": { "expression": "scared", "pose": "idle" },
+            "listener": {
+                "expression": "scared",
+                "pose": "idle"
+            },
             "camera": "wide",
             "pauseAfter": 0.25
         },
@@ -44,13 +51,15 @@
             "roman": "Toh phir bhoot ko coaching chahiye!",
             "expression": "laughing",
             "pose": "laugh",
-            "listener": { "expression": "suspicious", "pose": "hips" },
+            "listener": {
+                "expression": "suspicious",
+                "pose": "hips"
+            },
             "beat": "humor",
             "reaction": {
                 "expression": "dizzy",
                 "pose": "facefault",
-                "text": "धड़ाम!",
-                "sfx": "boing"
+                "text": "धड़ाम!"
             },
             "camera": "wide"
         },
@@ -60,7 +69,10 @@
             "roman": "Dekho, gend par ye chhote-chhote daanton ke nishaan hain.",
             "expression": "curious",
             "pose": "think",
-            "listener": { "expression": "curious", "pose": "idle" },
+            "listener": {
+                "expression": "curious",
+                "pose": "idle"
+            },
             "camera": "speaker"
         },
         {
@@ -69,7 +81,10 @@
             "roman": "Daant?! Matlab bhoot ke daant bhi hain?!",
             "expression": "shocked",
             "pose": "scared",
-            "listener": { "expression": "neutral", "pose": "idle" },
+            "listener": {
+                "expression": "neutral",
+                "pose": "idle"
+            },
             "camera": "closeup",
             "pauseAfter": 0.4
         },
@@ -79,10 +94,15 @@
             "roman": "Nahin! Ye Sheru hai, gali ka kutta. Roz gend dhoondhkar wapas le aata hai!",
             "expression": "happy",
             "pose": "point",
-            "listener": { "expression": "shocked", "pose": "idle" },
+            "listener": {
+                "expression": "shocked",
+                "pose": "idle"
+            },
             "beat": "reveal",
             "camera": "reveal",
-            "stage": { "dog": 1 },
+            "stage": {
+                "dog": 1
+            },
             "pauseAfter": 0.4
         },
         {
@@ -91,13 +111,15 @@
             "roman": "Aur main roz use bhoot samajhkar dar jaata tha!",
             "expression": "crying",
             "pose": "shrug",
-            "listener": { "expression": "happy", "pose": "idle" },
+            "listener": {
+                "expression": "happy",
+                "pose": "idle"
+            },
             "beat": "humor",
             "reaction": {
                 "expression": "laughing",
                 "pose": "laugh",
-                "text": "हा हा!",
-                "sfx": "boing"
+                "text": "हा हा!"
             },
             "camera": "wide"
         }

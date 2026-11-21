@@ -5,8 +5,6 @@
     "style": "anime",
     "dimension": "horizontal",
     "background": "haveli_night",
-    "bgm": "suspense",
-    "bgmVolume": 0.15,
     "cast": ["raazu", "golu"],
     "stage": {
         "windowGlow": 0.9
@@ -64,8 +62,7 @@
             "reaction": {
                 "expression": "suspicious",
                 "pose": "hips",
-                "text": "हैं?!",
-                "sfx": "boing"
+                "text": "हैं?!"
             },
             "camera": "wide"
         },
@@ -125,8 +122,7 @@
             "reaction": {
                 "expression": "suspicious",
                 "pose": "hips",
-                "text": "अच्छा जी?",
-                "sfx": "boing"
+                "text": "अच्छा जी?"
             },
             "camera": "wide"
         }

@@ -98,8 +98,9 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
 
     // SFX cues: story beats only (comedy reaction + reveal impact).
     // Screen switches (camera cuts / background changes) never get a sound.
+    // Off unless the dialogue opts in with "sfx": true (default audio = voices only).
     const sfx = [];
-    for (const ev of events) {
+    for (const ev of dialogue.sfx ? events : []) {
         if (ev.reaction?.sfx)
             sfx.push({ type: ev.reaction.sfx, time: ev.reactionStart + 0.05 });
         if (ev.beat === "reveal") sfx.push({ type: "impact", time: ev.start });

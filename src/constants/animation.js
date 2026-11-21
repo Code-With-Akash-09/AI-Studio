@@ -59,6 +59,12 @@ export const VISEMES = ["X", "A", "B", "C", "O"];
 
 export const BEATS = ["humor", "reveal"];
 
+/**
+ * Default audio is voices only. Background music and story-beat SFX are
+ * opt-in per dialogue: `"bgm": "<mood>"` (bgm.service mood) and `"sfx": true`.
+ */
+export const ANIMATION_AUDIO_DEFAULTS = { bgm: null, sfx: false };
+
 export const CAMERAS = ["wide", "speaker", "listener", "reveal", "closeup"];
 
 /**

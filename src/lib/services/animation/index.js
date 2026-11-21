@@ -184,11 +184,13 @@ async function mixSoundtrack(timeline, lineAudio, sr) {
     }
 
     // Background music resolved exactly like the pipeline (bgm.service)
-    const bgmTrack = resolveBgmTrack({
-        requestedMood: dialogue.bgm || "none",
-        detectedMood: "suspense",
-        volume: dialogue.bgmVolume,
-    });
+    const bgmTrack = !dialogue.bgm
+        ? null
+        : resolveBgmTrack({
+              requestedMood: dialogue.bgm || "none",
+              detectedMood: "suspense",
+              volume: dialogue.bgmVolume,
+          });
     const bgmRaw = await loadFile(bgmTrack?.trackPath, sr);
     if (bgmTrack && bgmRaw?.length) {
         used.bgm = { ...bgmTrack };

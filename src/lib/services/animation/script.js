@@ -8,8 +8,9 @@
  *   "dimension": "horizontal" | "vertical",
  *   "style": "classic" | "flat" | "anime",   // default "classic"
  *   "background": "haveli_night",
- *   "bgm": "suspense" | null,
+ *   "bgm": "suspense",                   // opt-in background music (default: none)
  *   "bgmVolume": 0.14,
+ *   "sfx": true,                         // opt-in story-beat SFX (default: off, voices only)
  *   "cast": ["raazu", "golu"],            // left → right stage slots
  *   "stage": { "windowGlow": 0 },          // initial background state
  *   "lines": [{
@@ -30,6 +31,7 @@
  * }
  */
 import {
+    ANIMATION_AUDIO_DEFAULTS,
     BEATS,
     CAMERAS,
     DEFAULT_STYLE,
@@ -150,7 +152,12 @@ export function normalizeDialogue(input) {
         background: BACKGROUND_IDS.includes(input.background)
             ? input.background
             : "plain",
-        bgm: input.bgm === null ? null : input.bgm || "suspense",
+        // voices-only by default: BGM and SFX are strictly opt-in
+        bgm:
+            typeof input.bgm === "string" && input.bgm && input.bgm !== "none"
+                ? input.bgm
+                : ANIMATION_AUDIO_DEFAULTS.bgm,
+        sfx: input.sfx === true ? true : ANIMATION_AUDIO_DEFAULTS.sfx,
         bgmVolume: Math.min(
             Math.max(Number(input.bgmVolume ?? 0.14) || 0.14, 0),
             0.5,

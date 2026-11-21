@@ -44,11 +44,12 @@ Same stack for all styles, no new runtime deps: SVG → `@resvg/resvg-js`
 
 ## Audio
 
-BGM comes from `bgm.service` (same tracks/moods as the pipeline, `dialogue.bgm`,
-`dialogue.bgmVolume`) with smoothed ducking under speech. There are **no screen-switch
-sounds**: camera cuts and background changes are silent. SFX are story beats only —
-the comedy reaction sound (`reaction.sfx`, default boing; `"none"` to mute) and the
-reveal impact.
+**Default is voices only** (Edge TTS): no background music and no SFX of any kind.
+Both are opt-in per dialogue (`ANIMATION_AUDIO_DEFAULTS` in `constants/animation.js`):
+
+- `"bgm": "<mood>"` (+ `"bgmVolume"`) — a `bgm.service` track, ducked under speech.
+- `"sfx": true` — story-beat SFX only (reaction sound, default boing; reveal impact).
+  Camera cuts and background changes never make a sound.
 
 ## Run
 
