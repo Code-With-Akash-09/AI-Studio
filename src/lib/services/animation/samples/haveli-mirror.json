@@ -1,0 +1,133 @@
+{
+    "id": "haveli-mirror",
+    "title": "हवेली की रहस्यमयी रोशनी (Haveli ki rahasyamayi roshni)",
+    "language": "hi",
+    "dimension": "horizontal",
+    "background": "haveli_night",
+    "bgm": "suspense",
+    "bgmVolume": 0.16,
+    "cast": ["raazu", "golu"],
+    "stage": {
+        "windowGlow": 0.9
+    },
+    "lines": [
+        {
+            "speaker": "raazu",
+            "text": "दोस्तों, इस हवेली की खिड़की हर रात अपने आप जल उठती है।",
+            "roman": "Doston, is haveli ki khidki har raat apne aap jal uthti hai.",
+            "expression": "curious",
+            "pose": "point",
+            "look": "camera",
+            "listener": {
+                "expression": "scared",
+                "pose": "idle"
+            },
+            "camera": "wide"
+        },
+        {
+            "speaker": "golu",
+            "text": "अपने आप? मतलब भूत! मैं तो चला, मम्मी ने दूध मँगवाया था।",
+            "roman": "Apne aap? Matlab bhoot! Main toh chala, mummy ne doodh mangwaaya tha.",
+            "expression": "scared",
+            "pose": "scared",
+            "listener": {
+                "expression": "neutral",
+                "pose": "idle"
+            },
+            "camera": "speaker"
+        },
+        {
+            "speaker": "raazu",
+            "text": "गोलू, रात के बारह बजे कौन दूध मँगवाता है?",
+            "roman": "Golu, raat ke baarah baje kaun doodh mangwaata hai?",
+            "expression": "suspicious",
+            "pose": "hips",
+            "listener": {
+                "expression": "scared",
+                "pose": "idle"
+            },
+            "camera": "wide",
+            "pauseAfter": 0.25
+        },
+        {
+            "speaker": "golu",
+            "text": "वो... मेरी मम्मी बहुत एडवांस हैं।",
+            "roman": "Wo... meri mummy bahut advance hain.",
+            "expression": "laughing",
+            "pose": "shrug",
+            "listener": {
+                "expression": "suspicious",
+                "pose": "hips"
+            },
+            "beat": "humor",
+            "reaction": {
+                "expression": "suspicious",
+                "pose": "hips",
+                "text": "हैं?!",
+                "sfx": "boing"
+            },
+            "camera": "wide"
+        },
+        {
+            "speaker": "raazu",
+            "text": "देखो, रोशनी तभी आती है जब चाँद हवेली के सामने होता है।",
+            "roman": "Dekho, roshni tabhi aati hai jab chaand haveli ke saamne hota hai.",
+            "expression": "curious",
+            "pose": "think",
+            "listener": {
+                "expression": "curious",
+                "pose": "idle"
+            },
+            "camera": "speaker"
+        },
+        {
+            "speaker": "golu",
+            "text": "मतलब... चाँद ही भूत है?!",
+            "roman": "Matlab... chaand hi bhoot hai?!",
+            "expression": "shocked",
+            "pose": "scared",
+            "listener": {
+                "expression": "neutral",
+                "pose": "idle"
+            },
+            "camera": "speaker",
+            "pauseAfter": 0.5
+        },
+        {
+            "speaker": "raazu",
+            "text": "नहीं! छत का पुराना शीशा चाँद की रोशनी खिड़की पर फेंकता है। भूत नहीं... विज्ञान!",
+            "roman": "Nahin! Chhat ka purana sheesha chaand ki roshni khidki par phenkta hai. Bhoot nahin... vigyaan!",
+            "expression": "happy",
+            "pose": "point",
+            "listener": {
+                "expression": "shocked",
+                "pose": "idle"
+            },
+            "beat": "reveal",
+            "camera": "reveal",
+            "stage": {
+                "windowGlow": 1
+            },
+            "pauseAfter": 0.4
+        },
+        {
+            "speaker": "golu",
+            "text": "हाहा! मैं डरा नहीं था... बस दूध याद आ गया था।",
+            "roman": "Haha! Main dara nahin tha... bas doodh yaad aa gaya tha.",
+            "expression": "laughing",
+            "pose": "laugh",
+            "listener": {
+                "expression": "happy",
+                "pose": "idle"
+            },
+            "beat": "humor",
+            "reaction": {
+                "expression": "suspicious",
+                "pose": "hips",
+                "text": "अच्छा जी?",
+                "sfx": "boing"
+            },
+            "camera": "wide"
+        }
+    ]
+}
