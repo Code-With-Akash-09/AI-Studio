@@ -111,7 +111,36 @@ consecutive frames per shot / action / overlay zoomed on each character's head a
 full body — for spotting drifting features, mouth jumps, detached limbs, z-flicker.
 
 
-`renderDialogueScene()` always outputs 30fps so pipeline scenes concat cleanly.
+### Staging guard (`staging.js`, `stagingQA.js`)
+
+Every timeline (hand-written samples and AI-generated scripts alike) is auto-fixed
+before rendering so nobody pops in, gets cut by the frame or vanishes behind a prop:
+
+- **Safe area** — authored marks are fitted to the frame in both 16:9 and 9:16
+  (`fitX`); `offL`/`offR` starts are pushed fully off-screen so no half-body peeks in,
+  and a speaker who is off-stage at their line gets an automatic walk-in.
+- **Hides** — the hide spot (`hideSpot`) is the holder's back side, or the front side
+  when the back is outside the frame; the hider always keeps head + shoulders visible.
+  A hide ends when either character moves; mutual/looping hides are skipped.
+- **No overlaps** — `resolveRestingConflicts()` steps the later arrival aside; long hops
+  take time proportional to distance (no cross-stage blink).
+- **Sheru** (`classic/sheru.js`, `planSheru`) — the dog is now a real character, not
+  scenery behind the planter: on a line with `stage.dog` he trots in from off-stage on the
+  speaker's side, settles on a spot clear of everyone's head and torso (in front of the
+  pair in 9:16, behind their plane in 16:9), trots aside if someone moves onto him and
+  trots out if there is no room left. The 9:16 camera keeps him in frame.
+- **Validator** — `validateStaging(timeline)` walks every frame and reports `edge`
+  (core body cut by the frame in a wide shot), `subject` (framed character's head
+  <90% visible), `occluded`, `peek` (hider >50% covered) and `pop` (sudden visibility
+  jump on a still camera). `renderDialogueScene()` renders only with zero issues;
+  otherwise the pipeline falls back to the scene's normal visual.
+
+```bash
+# samples + pipeline seed + 300 random AI-like scenes, both orientations
+node .scripts/animation/rig-qa.mjs --staging --fuzz=300 --out=/workspace/anim-demo/qa/v6-staging
+```
+
+`renderDialogueScene()` outputs 25fps (the pipeline's frame rate) so scenes concat cleanly.
 Same stack for all styles, no new runtime deps: SVG → `@resvg/resvg-js`
 (rasterized in a `worker_threads` pool, `rasterWorker.js`) → ffmpeg-static.
 
@@ -127,7 +156,7 @@ Both are opt-in per dialogue (`ANIMATION_AUDIO_DEFAULTS` in `constants/animation
 ## Run
 
 ```bash
-# classic sample (default): node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/gali-ball-classic.json /workspace/anim-demo --name=classic-v5
+# classic sample (default): node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/gali-ball-classic.json /workspace/anim-demo --name=classic-v6
 # anime sample: node .scripts/animation/render-demo.mjs src/lib/services/animation/samples/haveli-mirror-anime.json /workspace/anim-demo --name=anime-v1
 # demo MP4 + 3 stills → /workspace/anim-demo (needs python with edge-tts; PYTHON_PATH optional)
 pnpm anim:demo

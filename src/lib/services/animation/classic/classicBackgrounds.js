@@ -229,25 +229,6 @@ function galiRow(layout, t) {
     return s;
 }
 
-function dog(x, y, amount, t) {
-    if (amount <= 0.01) return "";
-    const rise = (1 - amount) * 140;
-    const wag = Math.sin(t * 18) * 16;
-    const s = `stroke="${OUT}" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"`;
-    let g = `<g transform="translate(${n(x)} ${n(y + rise)})">`;
-    g += `<path d="M 60 -40 Q ${n(95 + wag)} -95 ${n(80 + wag)} -110" fill="none" stroke="${OUT}" stroke-width="20" stroke-linecap="round"/><path d="M 60 -40 Q ${n(95 + wag)} -95 ${n(80 + wag)} -110" fill="none" stroke="#C98A4E" stroke-width="9" stroke-linecap="round"/>`;
-    g += `<ellipse cx="20" cy="-40" rx="70" ry="45" fill="#C98A4E" ${s}/>`;
-    g += `<circle cx="-50" cy="-95" r="52" fill="#C98A4E" ${s}/>`;
-    g += `<ellipse cx="-50" cy="-72" rx="32" ry="24" fill="#F4E2C8" ${s}/>`;
-    g += `<path d="M -92 -128 Q -120 -100 -100 -70 Q -86 -100 -78 -120 Z" fill="#8A5A30" ${s}/><path d="M -12 -128 Q 16 -100 -4 -70 Q -18 -100 -24 -120 Z" fill="#8A5A30" ${s}/>`;
-    g += `<circle cx="-68" cy="-102" r="7" fill="${OUT}"/><circle cx="-32" cy="-102" r="7" fill="${OUT}"/><circle cx="-66" cy="-104" r="2.5" fill="#FFF"/><circle cx="-30" cy="-104" r="2.5" fill="#FFF"/>`;
-    g += `<ellipse cx="-50" cy="-82" rx="10" ry="7" fill="${OUT}"/>`;
-    // cricket ball in mouth
-    g += `<circle cx="-50" cy="-56" r="20" fill="#E8384A" ${s}/><path d="M -62 -66 Q -50 -56 -62 -46 M -38 -66 Q -50 -56 -38 -46" fill="none" stroke="#FFFFFF" stroke-width="3"/>`;
-    g += "</g>";
-    return g;
-}
-
 function ground(layout, stage) {
     const { width: W, height: H } = layout;
     const top = H * 0.76;
@@ -264,10 +245,10 @@ function ground(layout, stage) {
     for (let k = 0; k < 3; k++) {
         s += `<rect x="${n(hx + k * 70)}" y="${n(hy - 18)}" width="62" height="36" fill="none" stroke="#FFFFFF" stroke-width="3" opacity="0.75" transform="skewX(-25)"/>`;
     }
-    // low planter wall in the middle (Sheru pops up behind it on the reveal)
+    // low planter wall in the middle, always behind the characters' feet
+    // (Sheru is a stage actor now: he trots in, see staging.js)
     const px = layout.revealSpot.x;
-    const py = H * 0.83;
-    s += dog(px + 20, py + 6, stage.dog ? stage.beam || 0 : 0, t);
+    const py = layout.vertical ? layout.groundY - H * 0.045 : H * 0.83;
     s += `<rect x="${n(px - 120)}" y="${n(py - 30)}" width="240" height="70" rx="12" fill="#F28C5A" ${ln(5)}/>`;
     s += `<rect x="${n(px - 120)}" y="${n(py - 30)}" width="240" height="18" rx="8" fill="#FFB08A" ${ln(4)}/>`;
     for (const k of [-80, -20, 45, 95]) {

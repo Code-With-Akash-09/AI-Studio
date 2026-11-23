@@ -40,6 +40,7 @@ import { buildDialogueAss } from "./captions.js";
 import { CHARACTERS } from "./characters.js";
 import { renderVideo } from "./renderer.js";
 import { normalizeDialogue } from "./script.js";
+import { validateStaging } from "./stagingQA.js";
 import { buildTimeline } from "./timeline.js";
 
 export { CHARACTERS, LEAD_CHARACTER_IDS, getCharacter } from "./characters.js";
@@ -298,6 +299,23 @@ export async function renderCharacterAnimation(input, opts = {}) {
 
     const timeline = buildTimeline(dialogue, lineAudio, { width, height, fps });
 
+    // staging check (framing / occlusion / pop-ins) before spending time on
+    // frames; the auto-fixes in acting.js + staging.js should leave none
+    const staging = validateStaging(timeline);
+    const stagingIssues = Object.values(staging.counts).reduce(
+        (a, b) => a + b,
+        0,
+    );
+    if (stagingIssues) {
+        onLog(
+            `Staging: ${stagingIssues} frame issue(s) ${JSON.stringify(staging.counts)}`,
+        );
+        if (opts.requireCleanStaging)
+            throw new Error(
+                `Character staging check failed (${JSON.stringify(staging.counts)})`,
+            );
+    }
+
     onProgress(25, "Mixing dialogue, SFX and BGM...");
     const soundtrack = await mixSoundtrack(timeline, lineAudio, sr);
     const audioPath = path.join(workDir, "soundtrack.wav");
@@ -338,6 +356,7 @@ export async function renderCharacterAnimation(input, opts = {}) {
         captions,
         usedTts: placeholderLines < lineAudio.length,
         placeholderLines,
+        staging: { issues: stagingIssues, counts: staging.counts },
         audio: {
             bgm: soundtrack.used.bgm,
             sfxFiles: soundtrack.used.sfx,
@@ -384,6 +403,9 @@ export async function renderDialogueScene(
         // to 30). Animating natively at 25fps avoids any frame drop/dup.
         fps: PIPELINE_SCENE_FPS,
         outputFps: PIPELINE_SCENE_FPS,
+        // never ship a glitchy character scene: the caller falls back to
+        // the normal visual instead
+        requireCleanStaging: true,
     });
     return {
         id: input.id || `anim-${index}`,
@@ -396,5 +418,6 @@ export async function renderDialogueScene(
         emotion: "dialogue",
         usedTts: result.usedTts,
         placeholderLines: result.placeholderLines,
+        staging: result.staging,
     };
 }

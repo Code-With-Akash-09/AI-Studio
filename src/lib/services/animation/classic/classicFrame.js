@@ -7,6 +7,7 @@ import { focusLines, letterbox, speedLines } from "../anime/fx.js";
 import { dustPuffs } from "./acting.js";
 import { renderClassicLayers } from "./classicBackgrounds.js";
 import { classicGeometry, OUT, renderClassicCharacter } from "./classicRig.js";
+import { renderSheru } from "./sheru.js";
 
 const n = (v) => Math.round(v * 100) / 100;
 
@@ -62,6 +63,10 @@ export function buildClassicFrameSvg(timeline, frame, frameIndex) {
     const ordered = [...frame.chars].sort(
         (a, b) => layer(a.state) - layer(b.state),
     );
+    // Sheru: behind the characters' plane (horizontal) or just in front of
+    // them (vertical); his spot never covers a head (staging.js)
+    const dog = frame.sheru ? renderSheru(frame.sheru) : "";
+    if (dog && !frame.sheru.front) chars += dog;
     for (const { actor, state } of ordered) {
         const uid = `c${actor.slot}f${frameIndex % 2}`;
         const vis = visibility(layout, camera, actor, state);
@@ -74,6 +79,7 @@ export function buildClassicFrameSvg(timeline, frame, frameIndex) {
         });
         chars += partial ? anchorClips(body) : body;
     }
+    if (dog && frame.sheru.front) chars += dog;
     svg += `<g transform="${parallax(layout, camera, shake, 1)}">${chars}</g>`;
     if (!fx.gag) {
         for (const layer of layers.front) {

@@ -3,6 +3,13 @@
  *
  *   node .scripts/animation/rig-qa.mjs [sample.json] [--out=/workspace/anim-demo/qa/v5]
  *        [--vertical] [--no-matrix] [--no-shots] [--frames=24]
+ *   node .scripts/animation/rig-qa.mjs --staging [--fuzz=60] [--out=...]
+ *
+ * --staging: framing / occlusion / pop-in report (see stagingQA.js) for the
+ *    classic samples, the pipeline seed scene and N random AI-like scripts
+ *    (run through the pipeline sanitizer), in 16:9 and 9:16. Samples + seed use
+ *    the real TTS timing (cache), fuzz scripts synthetic timing. Renders the
+ *    first offending frames with boxes drawn; exits 1 on any violation.
  *
  * 1. Test matrices per character (rendered straight from the rig):
  *    head angle x expression, head angle x mouth shape, expression x mouth shape,
@@ -104,6 +111,174 @@ function matrix(ch, name, rows, cols, make, { body = false } = {}) {
         cell: body ? [220, 230] : [210, 210],
         cells: cells.map((c) => ({ ...c, img })),
     });
+}
+
+if (flag("staging")) {
+    await stagingReport();
+    process.exit(process.exitCode || 0);
+}
+
+async function stagingReport() {
+    const { ANIMATION_DIMENSIONS, ANIME_FPS } = await import(
+        "../../src/constants/animation.js"
+    );
+    const { validateStaging } = await import(
+        "../../src/lib/services/animation/stagingQA.js"
+    );
+    const { buildTimeline } = await import(
+        "../../src/lib/services/animation/timeline.js"
+    );
+    const { normalizeDialogue } = await import(
+        "../../src/lib/services/animation/script.js"
+    );
+    const { sanitizeCharacterDialogue } = await import(
+        "../../src/lib/services/animation/pipeline.js"
+    );
+    const { characterBoxes, sheruBox } = await import(
+        "../../src/lib/services/animation/staging.js"
+    );
+    const { aiResult } = await import("./pipeline-seed-plan.mjs");
+    const { fuzzScene } = await import("./staging-fuzz.mjs");
+    const samples = "src/lib/services/animation/samples";
+    const read = (f) =>
+        JSON.parse(fs.readFileSync(path.join(samples, f), "utf8"));
+    const cases = [
+        {
+            name: "sample-gali-ball",
+            dialogue: read("gali-ball-classic.json"),
+            tts: true,
+        },
+        {
+            name: "sample-haveli-mirror-as-classic",
+            dialogue: { ...read("haveli-mirror.json"), style: "classic" },
+            tts: true,
+        },
+        {
+            name: "pipeline-seed",
+            seed: aiResult.scenes.find((sc) => sc.visualType === "character"),
+            tts: true,
+        },
+    ];
+    const nFuzz = Number(opt("fuzz", 60));
+    for (let i = 0; i < nFuzz; i++)
+        cases.push({ name: `fuzz-${i}`, seed: fuzzScene(i), tts: false });
+    const only = opt("only", "");
+    const run = only
+        ? cases.filter((c) => only.split(",").includes(c.name))
+        : cases;
+    fs.mkdirSync(outDir, { recursive: true });
+    for (const f of fs.readdirSync(outDir))
+        if (f.startsWith("staging-") && f.endsWith(".png"))
+            fs.rmSync(path.join(outDir, f));
+
+    const report = [];
+    let total = 0;
+    let rendered = 0;
+    for (const c of run) {
+        for (const dim of ["horizontal", "vertical"]) {
+            const raw = c.seed
+                ? sanitizeCharacterDialogue(c.seed, { dimension: dim })
+                : c.dialogue;
+            if (!raw) {
+                report.push({ case: c.name, dim, rejected: true });
+                continue;
+            }
+            let tl;
+            if (c.tts) {
+                tl = await buildCharacterTimeline(raw, {
+                    dimension: dim,
+                    cacheDir: "/workspace/anim-demo/tts-cache",
+                });
+            } else {
+                const d = normalizeDialogue({ ...raw, dimension: dim });
+                const { width, height } = ANIMATION_DIMENSIONS[dim];
+                const audio = d.lines.map((l) => {
+                    const duration = 0.9 + l.text.length * 0.06;
+                    return {
+                        duration,
+                        envelope: Array.from(
+                            { length: Math.ceil(duration * ANIME_FPS) },
+                            (_, k) => 0.35 + 0.3 * Math.sin(k),
+                        ),
+                        words: [],
+                    };
+                });
+                tl = buildTimeline(d, audio, { width, height, fps: ANIME_FPS });
+            }
+            const res = validateStaging(tl);
+            const n = Object.values(res.counts).reduce((a, b) => a + b, 0);
+            total += n;
+            report.push({
+                case: c.name,
+                dim,
+                frames: res.frames,
+                issues: n,
+                counts: res.counts,
+                sheru: !!tl.sheru,
+                first: res.violations.slice(0, 6),
+            });
+            console.log(
+                `${n ? "FAIL" : "ok  "} ${c.name.padEnd(34)} ${dim.padEnd(10)} ${String(res.frames).padStart(5)} frames  ${n ? JSON.stringify(res.counts) : ""}${tl.sheru ? "  (sheru)" : ""}`,
+            );
+            const seen = new Set();
+            for (const v of res.violations) {
+                if (seen.has(v.kind + v.who) || rendered >= 40) continue;
+                seen.add(v.kind + v.who);
+                if (flag("verbose")) console.log("   ", JSON.stringify(v));
+                rendered++;
+                const frame = frameState(tl, v.t, v.frame);
+                let svg = buildClassicFrameSvg(tl, frame, v.frame).replace(
+                    "</svg>",
+                    "",
+                );
+                const cam = frame.camera;
+                const sb = (b, col) => {
+                    if (!b) return "";
+                    const x0 = (b.x0 - cam.x) * cam.s + tl.layout.width / 2;
+                    const x1 = (b.x1 - cam.x) * cam.s + tl.layout.width / 2;
+                    const y0 = (b.y0 - cam.y) * cam.s + tl.layout.height / 2;
+                    const y1 = (b.y1 - cam.y) * cam.s + tl.layout.height / 2;
+                    return `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="none" stroke="${col}" stroke-width="5"/>`;
+                };
+                for (const { actor, state } of frame.chars) {
+                    const b = characterBoxes(actor, state);
+                    svg +=
+                        sb(b.core, "#00E5FF") +
+                        sb(b.head, "#FF2D55") +
+                        sb(b.torso, "#FFD600");
+                }
+                if (frame.sheru)
+                    svg += sb(
+                        sheruBox(
+                            frame.sheru.x,
+                            frame.sheru.groundY,
+                            frame.sheru.scale,
+                            frame.sheru.facing,
+                        ),
+                        "#7CFF00",
+                    );
+                svg += "</svg>";
+                fs.mkdirSync(outDir, { recursive: true });
+                fs.writeFileSync(
+                    path.join(
+                        outDir,
+                        `staging-${c.name}-${dim}-${v.kind}-${v.who}-f${v.frame}.png`,
+                    ),
+                    png(svg),
+                );
+            }
+        }
+    }
+    fs.mkdirSync(outDir, { recursive: true });
+    fs.writeFileSync(
+        path.join(outDir, "staging-report.json"),
+        JSON.stringify({ total, report }, null, 2),
+    );
+    console.log(
+        `staging: ${total} violation frame(s) across ${report.length} runs → ${path.join(outDir, "staging-report.json")}`,
+    );
+    fs.rmSync(work, { recursive: true, force: true });
+    if (total) process.exitCode = 1;
 }
 
 if (!flag("no-matrix")) {

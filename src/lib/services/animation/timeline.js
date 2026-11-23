@@ -15,6 +15,13 @@ import { CLASSIC_SCALE, classicHeadCenterY } from "./classic/classicRig.js";
 import { CHARACTERS } from "./characters.js";
 import { characterHeight } from "./rig.js";
 import { createRandom, hashString } from "./random.js";
+import {
+    SAFE_AREA,
+    coreHalfWidth,
+    planSheru,
+    sheruAt,
+    sheruBox,
+} from "./staging.js";
 
 const INTRO = 0.6;
 const OUTRO = 1.2;
@@ -119,7 +126,31 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
     const acting = classic
         ? buildActing(dialogue, events, actors, layout)
         : null;
-    const total = acting ? Math.max(duration, acting.end + 0.9) : duration;
+    // Sheru trots in (never pops up half-hidden behind a prop)
+    const sheru = acting
+        ? planSheru({
+              layout,
+              events,
+              actors,
+              positionAt: (id, t) => positionAt(acting, id, t),
+              moves: Object.values(acting.tracks).flatMap((tr) =>
+                  tr.segs.filter(
+                      (sg) =>
+                          Number.isFinite(sg.t1) &&
+                          sg.type !== "hidden" &&
+                          sg.type !== "held",
+                  ),
+              ),
+              classicScale: CLASSIC_SCALE,
+              end: Math.max(duration, acting.end + 0.9),
+              revealDelay: (ev) =>
+                  ev.actions?.some((a) => a.type === "dramatic")
+                      ? DRAMATIC.end - 0.35
+                      : 0.25,
+          })
+        : null;
+    let total = acting ? Math.max(duration, acting.end + 0.9) : duration;
+    if (sheru) total = Math.max(total, sheru.t1 + 1, sheru.end + 0.3);
 
     return {
         dialogue,
@@ -128,6 +159,7 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
         duration: total,
         acting,
         actors,
+        sheru,
         sfx: sfx.sort((a, b) => a.time - b.time),
         transitions,
         fps,
@@ -210,11 +242,41 @@ function cameraTarget(timeline, ev, t = 0) {
             if (layout.vertical && timeline.acting) {
                 // Shorts framing: push in on the pair, keep heads in the upper-middle
                 // safe area and the bottom ~20% free for captions / Shorts UI
-                const xs = Object.values(actors).map(
-                    (ac) => actorFocus(timeline, ac, t).x,
-                );
-                const mid =
-                    xs.reduce((sum, v) => sum + v, 0) / Math.max(1, xs.length);
+                // fit everyone on stage (and Sheru once he is in) inside the
+                // safe area: zoom out from 1.15 toward 1 when they spread
+                let lo = Infinity;
+                let hi = -Infinity;
+                for (const ac of Object.values(actors)) {
+                    const fx = actorFocus(timeline, ac, t).x;
+                    if (fx < 0 || fx > layout.width) continue; // entering/exiting
+                    const h = coreHalfWidth(ac);
+                    lo = Math.min(lo, fx - h);
+                    hi = Math.max(hi, fx + h);
+                }
+                const sp = timeline.sheru;
+                const ss = sheruAt(sp, t);
+                if (ss && !ss.entering && ss.x > 0 && ss.x < layout.width) {
+                    const b = sheruBox(ss.x, sp.y, sp.scale, ss.facing);
+                    lo = Math.min(lo, b.x0);
+                    hi = Math.max(hi, b.x1);
+                } else if (ss?.entering && t > sp.t1 - 0.5) {
+                    const w = smooth((t - (sp.t1 - 0.5)) / 0.5);
+                    const b = sheruBox(sp.x1, sp.y, sp.scale, sp.facing);
+                    if (Number.isFinite(lo)) {
+                        lo += (Math.min(lo, b.x0) - lo) * w;
+                        hi += (Math.max(hi, b.x1) - hi) * w;
+                    } else {
+                        lo = b.x0;
+                        hi = b.x1;
+                    }
+                }
+                if (!Number.isFinite(lo)) {
+                    lo = layout.width * 0.3;
+                    hi = layout.width * 0.7;
+                }
+                const mid = (lo + hi) / 2;
+                const margin = layout.width * SAFE_AREA.side * 2;
+                const fit = layout.width / Math.max(1, hi - lo + margin);
                 // a face-fault reaction needs room to fall: ease the push-in
                 // out a little and lean toward the faller (no face off the edge)
                 let ff = 0;
@@ -229,14 +291,15 @@ function cameraTarget(timeline, ev, t = 0) {
                     const who = actors[ev.listenerId];
                     if (who) lean = actorFocus(timeline, who, t).x - mid;
                 }
-                const s = 1.15 - 0.2 * ff;
+                const s = Math.max(1, Math.min(1.15 - 0.2 * ff, fit));
                 const half = layout.width / (2 * s);
+                let x = mid + lean * 0.45 * ff;
+                // the face-fault lean must not push anyone out of frame
+                if (hi - lo <= 2 * half)
+                    x = Math.min(lo + half, Math.max(hi - half, x));
                 return {
                     s,
-                    x: Math.min(
-                        layout.width - half,
-                        Math.max(half, mid + lean * 0.45 * ff),
-                    ),
+                    x: Math.min(layout.width - half, Math.max(half, x)),
                     y: layout.groundY - layout.height * 0.27,
                 };
             }
@@ -548,5 +611,28 @@ export function frameState(timeline, t, frameIndex) {
         }
     }
 
-    return { t, ev, stage, camera, shake, flash, chars, background, fx };
+    const sheru = sheruAt(timeline.sheru, t);
+    return {
+        t,
+        ev,
+        stage,
+        camera,
+        shake,
+        flash,
+        chars,
+        sheru,
+        background,
+        fx,
+        shot: drama ? "dramatic" : camEv?.camera || "wide",
+        // who a speaker / listener / close-up shot is framed on
+        subject:
+            !camEv || drama
+                ? null
+                : camEv.camera === "listener"
+                  ? camEv.listenerId
+                  : ["speaker", "closeup"].includes(camEv.camera)
+                    ? camEv.speaker
+                    : null,
+        camIdx,
+    };
 }
