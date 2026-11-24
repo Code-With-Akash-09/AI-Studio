@@ -40,3 +40,5 @@ teeth, NOT sticking out. Thin white gutters between cells."
   (the magenta/green cheek smears in the Kabir sheet came from the grid's darker screen shade).
 - 21:31 Ramesh Papa DONE: eyefix on surprised; kits poses/p2/ramesh-papa-*; check _check/ramesh-papa-mouths.jpg.
   Prunes: think O=U (blank-glasses cell). Flaws: surprised blink cell is a one-eye wink; L tongue-out on explain; moustache hides MBP/U.
+- 21:50 Kabir DONE (rebuilt with the gutter/key-shade fix: cheek smears gone). Kits poses/p2/kabir-*; check _check/kabir-mouths.jpg.
+  Flaws: laugh base is a one-eye wink (painted that way); faint grey edge on sit closed/MBP chin; L tongue-out in a few cells.
