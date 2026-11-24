@@ -9,8 +9,20 @@ MODEL = os.environ.get('SR_MODEL', '/workspace/tools/sr/anime6B.pth')
 torch.set_num_threads(os.cpu_count())
 model = ModelLoader().load_from_file(MODEL).model.eval()
 
-def sr_rgb(rgb):
-    h, w = rgb.shape[:2]; pad = 8
+def sr_rgb(rgb, tile=320, ov=16):
+    """x4 model in overlapping tiles (bounded memory), then INTER_AREA to x2."""
+    h, w = rgb.shape[:2]
+    if h * w > tile * tile * 1.5:
+        out = np.zeros((h * 4, w * 4, 3), np.float32)
+        for y0 in range(0, h, tile):
+            for x0 in range(0, w, tile):
+                ya, xa = max(0, y0 - ov), max(0, x0 - ov); yb, xb = min(h, y0 + tile + ov), min(w, x0 + tile + ov)
+                t = torch.from_numpy(np.ascontiguousarray(rgb[ya:yb, xa:xb])).permute(2, 0, 1)[None].float() / 255
+                with torch.no_grad(): y = model(t)[0].clamp(0, 1).permute(1, 2, 0).numpy() * 255
+                ye, xe = min(h, y0 + tile), min(w, x0 + tile)
+                out[y0 * 4:ye * 4, x0 * 4:xe * 4] = y[(y0 - ya) * 4:(ye - ya) * 4, (x0 - xa) * 4:(xe - xa) * 4]
+        return cv2.resize(out, (w * 2, h * 2), interpolation=cv2.INTER_AREA)
+    pad = 8
     x = np.pad(rgb, ((pad, pad), (pad, pad), (0, 0)), mode='edge')
     t = torch.from_numpy(x).permute(2, 0, 1)[None].float() / 255
     with torch.no_grad():
