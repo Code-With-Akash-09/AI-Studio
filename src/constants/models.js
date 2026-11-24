@@ -4,6 +4,44 @@ export const AI_PROVIDERS = [
     { value: "anthropic", label: "Anthropic Claude" },
 ];
 
+export const GEMINI_MODELS = [
+    {
+        value: "gemini-2.5-flash",
+        label: "Gemini 2.5 Flash (Recommended)",
+        description: "Fastest flagship free-tier model, high accuracy",
+    },
+    {
+        value: "gemini-flash-lite-latest",
+        label: "Gemini Flash-Lite (Ultra Fast)",
+        description: "Lowest latency lightweight model",
+    },
+    {
+        value: "gemini-3.5-flash-lite",
+        label: "Gemini 3.5 Flash Lite",
+        description: "Next-gen lightweight model",
+    },
+    {
+        value: "gemini-3.5-flash",
+        label: "Gemini 3.5 Flash",
+        description: "High capacity flash model",
+    },
+    {
+        value: "gemini-3.6-flash",
+        label: "Gemini 3.6 Flash",
+        description: "Standard flash model",
+    },
+    {
+        value: "gemini-3.7-flash",
+        label: "Gemini 3.7 Flash",
+        description: "Enhanced reasoning model",
+    },
+    {
+        value: "gemini-3.8-flash",
+        label: "Gemini 3.8 Flash",
+        description: "Latest generation flash model",
+    },
+];
+
 export const VOICE_GENDERS = [
     { value: "male", label: "Male Voice" },
     { value: "female", label: "Female Voice" },

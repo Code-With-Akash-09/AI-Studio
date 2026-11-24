@@ -14,6 +14,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { BGM_MOODS, BGM_VOLUMES } from "@/constants/audio";
 import {
     AI_PROVIDERS,
+    GEMINI_MODELS,
     LANGUAGES,
     VISUAL_ENGINES,
     VOICE_GENDERS,
@@ -59,13 +60,15 @@ export function StudioSettings({
     onGenderChange,
     provider,
     onProviderChange,
+    model = "gemini-2.5-flash",
+    onModelChange,
     language,
     onLanguageChange,
-    visualEngine = "ai_realism",
+    visualEngine = "stock",
     onVisualEngineChange,
     geminiKey,
     onGeminiKeyChange,
-    bgmMood = "auto",
+    bgmMood = "none",
     onBgmMoodChange,
     bgmVolume = 0.1,
     onBgmVolumeChange,
@@ -78,6 +81,9 @@ export function StudioSettings({
 }) {
     const selectedProvider = AI_PROVIDERS.find(
         (option) => option.value === provider,
+    );
+    const selectedGeminiModel = GEMINI_MODELS.find(
+        (option) => option.value === model,
     );
     const selectedLanguage = LANGUAGES.find(
         (option) => option.value === language,
@@ -217,6 +223,47 @@ export function StudioSettings({
                             </Select>
                         </div>
                     </div>
+                    {provider === "gemini" && onModelChange && (
+                        <div className="space-y-1.5">
+                            <Label
+                                htmlFor="gemini-model-select"
+                                className="text-xs font-semibold text-slate-700 flex items-center justify-between"
+                            >
+                                <span>Gemini Model (Free Tier)</span>
+                                <span className="text-[10px] font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                    Auto-Rotated
+                                </span>
+                            </Label>
+                            <Select value={model} onValueChange={onModelChange}>
+                                <SelectTrigger
+                                    id="gemini-model-select"
+                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs text-slate-900"
+                                >
+                                    <SelectValue>
+                                        {selectedGeminiModel?.label || model}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className="rounded-lg!">
+                                    {GEMINI_MODELS.map((m) => (
+                                        <SelectItem
+                                            key={m.value}
+                                            value={m.value}
+                                            className="rounded-lg!"
+                                        >
+                                            <div className="flex flex-col text-left py-0.5">
+                                                <span className="font-medium text-xs text-slate-900">
+                                                    {m.label}
+                                                </span>
+                                                <span className="text-[10px] text-slate-500">
+                                                    {m.description}
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                     <div className="space-y-1.5">
                         <Label
                             htmlFor="visual-engine-select"

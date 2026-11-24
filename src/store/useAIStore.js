@@ -117,7 +117,7 @@ export const useAIStore = create(
                 state.generator.isGenerating = false;
                 state.generator.activeJobId = null;
                 state.generator.lastResult = null;
-                state.generator.bgmMood = "auto";
+                state.generator.bgmMood = "none";
                 state.generator.bgmVolume = 0.1;
             }),
 

@@ -4,7 +4,7 @@ import { config } from "../../config.js";
 import { executeGeminiWithKeyRotation } from "./gemini.rotator.js";
 
 const DEFAULT_MODELS = {
-    gemini: "gemini-3.6-flash",
+    gemini: "gemini-2.5-flash",
     openai: "gpt-4o-mini",
     anthropic: "claude-3-5-haiku-20241022",
 };
@@ -17,7 +17,7 @@ export async function generateJSON({
 }) {
     const targetProvider = (provider || "gemini").toLowerCase();
     const targetModel =
-        model || DEFAULT_MODELS[targetProvider] || "gemini-3.6-flash";
+        model || DEFAULT_MODELS[targetProvider] || "gemini-2.5-flash";
 
     if (targetProvider === "gemini") {
         return executeGeminiWithKeyRotation({

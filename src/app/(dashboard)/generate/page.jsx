@@ -26,12 +26,13 @@ export default function GeneratePage() {
 
     const [script, setScript] = useState("");
     const [provider, setProvider] = useState("gemini");
+    const [model, setModel] = useState("gemini-2.5-flash");
     const [dimension, setDimension] = useState("vertical");
     const [gender, setGender] = useState("male");
     const [language, setLanguage] = useState("hi");
-    const [visualEngine, setVisualEngine] = useState("ai_realism");
+    const [visualEngine, setVisualEngine] = useState("stock");
     const [geminiKey, setGeminiKey] = useState("");
-    const [bgmMood, setBgmMood] = useState("auto");
+    const [bgmMood, setBgmMood] = useState("none");
     const [bgmVolume, setBgmVolume] = useState(0.1);
     // video mode (needs ANIMATION_ENABLED on the server): off | mix | full
     const [animationMode, setAnimationModeState] = useState("off");
@@ -113,6 +114,7 @@ export default function GeneratePage() {
                     script,
                     socketId,
                     provider,
+                    model,
                     dimension,
                     gender,
                     visualEngine,
@@ -149,6 +151,7 @@ export default function GeneratePage() {
             script,
             socketId,
             provider,
+            model,
             dimension,
             gender,
             language,
@@ -320,6 +323,8 @@ export default function GeneratePage() {
                         onGenderChange={setGender}
                         provider={provider}
                         onProviderChange={setProvider}
+                        model={model}
+                        onModelChange={setModel}
                         language={language}
                         onLanguageChange={setLanguage}
                         visualEngine={visualEngine}

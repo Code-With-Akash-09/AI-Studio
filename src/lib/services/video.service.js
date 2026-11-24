@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { DEFAULT_BGM_VOLUME } from "../../constants/audio.js";
 import { config } from "../config.js";
 import {
     checkpointScene,
@@ -19,14 +20,13 @@ import {
     ensureDirectories,
 } from "../utils/files.js";
 import { analyzeScript } from "./ai/analyzeScript.js";
-import { animationModeFor } from "./animation/flags.js";
 import { selectBestAsset } from "./ai/selectAsset.js";
 import { synthesizeSceneVisual } from "./ai/synthesizeSceneVisual.js";
+import { animationModeFor } from "./animation/flags.js";
+import { resolveBgmTrack } from "./audio/bgm.service.js";
 import { createCaptions } from "./captions/createCaptions.js";
 import { createSrt } from "./captions/createSrt.js";
 import { combineScenes } from "./renderer/combine.js";
-import { resolveBgmTrack } from "./audio/bgm.service.js";
-import { DEFAULT_BGM_VOLUME } from "../../constants/audio.js";
 import {
     renderImageScene,
     renderTextScene,
@@ -50,7 +50,7 @@ async function createScene(
         language = "en",
         geminiApiKeys,
         dimension = "vertical",
-        visualEngine = "ai_realism",
+        visualEngine = "stock",
         excludeUrls = [],
         onProgress = () => {},
         progressStart = 20,
@@ -463,8 +463,8 @@ export async function generateVideo(script, options = {}) {
         userId = null,
         geminiApiKeys = [],
         dimension = "vertical",
-        visualEngine = "ai_realism",
-        bgmMood = "auto",
+        visualEngine = "stock",
+        bgmMood = "none",
         bgmVolume = DEFAULT_BGM_VOLUME,
         characterAnimation: characterAnimationOption,
         animationMode: animationModeOption,
