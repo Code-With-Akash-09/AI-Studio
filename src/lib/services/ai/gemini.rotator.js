@@ -321,6 +321,15 @@ export async function executeGeminiWithKeyRotation({
                     console.warn(
                         `[Gemini Rotator] Model [${targetModel}] overloaded/high-demand: ${error.message || "503"}. Falling back to next model...`,
                     );
+                } else if (
+                    /invalid JSON output|empty response/i.test(
+                        error?.message || "",
+                    )
+                ) {
+                    // a malformed answer from one model: try the next model
+                    console.warn(
+                        `[Gemini Rotator] Model [${targetModel}] returned unusable JSON. Falling back to next model...`,
+                    );
                 } else if (isModelNotFoundError(error)) {
                     // Model discontinued or not found (404).
                     console.warn(

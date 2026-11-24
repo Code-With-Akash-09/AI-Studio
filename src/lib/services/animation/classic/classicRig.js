@@ -26,7 +26,47 @@ import { mouthShapeFor } from "./mouths.js";
 const n = (v) => Math.round(v * 10) / 10;
 
 export const OUT = "#2A2233";
-const LW = 7;
+/** Outline weight (toon look: heavier ink lines, like the channel thumbnails). */
+const TOON = (process.env.ANIMATION_CLASSIC_LOOK || "toon") !== "flat";
+const LW = TOON ? 9 : 7;
+/** Default rim-light colour (scenes may override with state.rim). */
+const RIM = "#FFF0D0";
+/** Shadow side of the character being drawn (render is synchronous). */
+let CUR_SD = 1;
+
+/** Darken / lighten a #rrggbb colour by k (-1..1). */
+function tone(hex, k) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
+    if (!m) return hex;
+    const v = Number.parseInt(m[1], 16);
+    const ch = [(v >> 16) & 255, (v >> 8) & 255, v & 255].map((c) =>
+        Math.round(k < 0 ? c * (1 + k) : c + (255 - c) * k),
+    );
+    return `#${ch.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * Two-tone cel shading + rim light for a closed shape `d` (local coords).
+ * Key light comes from the camera-left in WORLD space, so the shadow side in
+ * local coords is C._sd (+1 / -1, flips with the character).
+ */
+function celShade(C, d, id, box, base) {
+    if (!TOON) return "";
+    const sd = C._sd || 1;
+    const [x0, y0, x1, y1] = box;
+    const w = x1 - x0;
+    const h = y1 - y0;
+    const cx = (x0 + x1) / 2;
+    const shadow = tone(base, -0.2);
+    const rim = C._rim || RIM;
+    let svg = `<defs><clipPath id="${id}"><path d="${d}"/></clipPath><clipPath id="${id}s"><rect x="${n(sd > 0 ? cx + w * 0.18 : x0 - 20)}" y="${n(y0 - 20)}" width="${n(w * 0.32 + 20)}" height="${n(h + 40)}"/></clipPath></defs>`;
+    svg += `<g clip-path="url(#${id})">`;
+    svg += `<ellipse cx="${n(cx + sd * w * 0.62)}" cy="${n(y0 + h * 0.55)}" rx="${n(w * 0.5)}" ry="${n(h * 0.9)}" fill="${shadow}"/>`;
+    svg += `<path d="M ${n(x0)} ${n(y1 - h * 0.1)} L ${n(x1)} ${n(y1 - h * 0.1)} L ${n(x1)} ${n(y1 + 10)} L ${n(x0)} ${n(y1 + 10)} Z" fill="${shadow}" opacity="0.6"/>`;
+    svg += `<g clip-path="url(#${id}s)"><path d="${d}" fill="none" stroke="${rim}" stroke-width="${LW + 4}" stroke-opacity="0.75"/></g>`;
+    svg += "</g>";
+    return svg;
+}
 /** Classic characters are drawn a little larger on stage (they are short). */
 export const CLASSIC_SCALE = 1.18;
 const POSE_BLEND = 0.34;
@@ -69,7 +109,10 @@ export function classicHeadCenterY(ch) {
 function limb(d, color, width, outline = LW) {
     return (
         `<path d="${d}" fill="none" stroke="${OUT}" stroke-width="${n(width + outline * 2)}" stroke-linecap="round" stroke-linejoin="round"/>` +
-        `<path d="${d}" fill="none" stroke="${color}" stroke-width="${n(width)}" stroke-linecap="round" stroke-linejoin="round"/>`
+        `<path d="${d}" fill="none" stroke="${color}" stroke-width="${n(width)}" stroke-linecap="round" stroke-linejoin="round"/>` +
+        (TOON && width >= 20
+            ? `<path d="${d}" fill="none" stroke="${tone(color, -0.18)}" stroke-width="${n(width * 0.34)}" stroke-linecap="round" stroke-linejoin="round" transform="translate(${n(width * 0.26 * CUR_SD)} ${n(width * 0.1)})" opacity="0.8"/>`
+            : "")
     );
 }
 
@@ -508,7 +551,9 @@ function drawBehind(C, g, m, t) {
         const d = `M ${n(x0)} ${n(top + 6)} Q ${n(x0 - 30 - tr * 40)} ${n(top + 50 - tr * 20)} ${n(x0 - 26 - tr * 95)} ${n(top + 100 - tr * 55 + flutter)}`;
         return (
             limb(d, C.gamchha, 32, 6) +
-            `<path d="${d}" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-dasharray="10 14" stroke-linecap="round"/>`
+            (TOON
+                ? `<path d="${d}" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-dasharray="4 9" stroke-opacity="0.85"/><path d="${d}" fill="none" stroke="#FFFFFF" stroke-width="3" transform="translate(0 -6)" stroke-opacity="0.85"/><path d="${d}" fill="none" stroke="#FFFFFF" stroke-width="3" transform="translate(0 6)" stroke-opacity="0.85"/>`
+                : `<path d="${d}" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-dasharray="10 14" stroke-linecap="round"/>`)
         );
     }
     return "";
@@ -522,6 +567,17 @@ function drawBody(C, g, m, t) {
     if (C.body === "round") {
         const cy = (top + bot) / 2 + 4;
         svg += `<ellipse cx="0" cy="${n(cy)}" rx="${n(C.bodyW / 2)}" ry="${n(C.bodyH / 2 + 8)}" fill="${C.outfit}" ${stroke()}/>`;
+        {
+            const rx = C.bodyW / 2;
+            const ry = C.bodyH / 2 + 8;
+            svg += celShade(
+                C,
+                `M ${n(-rx)} ${n(cy)} A ${n(rx)} ${n(ry)} 0 1 0 ${n(rx)} ${n(cy)} A ${n(rx)} ${n(ry)} 0 1 0 ${n(-rx)} ${n(cy)} Z`,
+                `${C._uid}-bd`,
+                [-rx, cy - ry, rx, cy + ry],
+                C.outfit,
+            );
+        }
         svg += `<path d="M 0 ${n(top + 20)} L 0 ${n(top + C.bodyH * 0.55)}" ${stroke(5)}/>`;
         for (const k of [0.28, 0.45]) {
             svg += `<circle cx="9" cy="${n(top + C.bodyH * k)}" r="5.5" fill="${C.shirt}" ${stroke(3)}/>`;
@@ -540,8 +596,18 @@ function drawBody(C, g, m, t) {
         }
         svg += `<path d="${hem}" fill="none" stroke="${C.outfitDark}" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`;
         if (C.gamchha) {
-            svg += `<path d="M ${n(-C.bodyW * 0.34)} ${n(top + 2)} Q 0 ${n(top + 30)} ${n(C.bodyW * 0.34)} ${n(top + 2)} Q 0 ${n(top + 14)} ${n(-C.bodyW * 0.34)} ${n(top + 2)} Z" fill="${C.gamchha}" ${stroke(6)}/>`;
-            svg += `<path d="M ${n(-C.bodyW * 0.26)} ${n(top + 10)} Q 0 ${n(top + 30)} ${n(C.bodyW * 0.26)} ${n(top + 10)}" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-dasharray="9 12"/>`;
+            if (TOON) {
+                // checked gamchha: a band round the neck + a knotted end in front
+                const pid = `${C._uid}-chk`;
+                const W = C.bodyW * 0.36;
+                svg += `<defs><pattern id="${pid}" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="${C.gamchha}"/><rect width="16" height="4" fill="#FFFFFF" opacity="0.85"/><rect width="4" height="16" fill="#FFFFFF" opacity="0.85"/></pattern></defs>`;
+                svg += `<path d="M ${n(-W)} ${n(top + 10)} Q 0 ${n(top + 58)} ${n(W)} ${n(top + 10)} L ${n(W - 6)} ${n(top + 34)} Q 0 ${n(top + 80)} ${n(-W + 6)} ${n(top + 34)} Z" fill="url(#${pid})" ${stroke(6)}/>`;
+                svg += `<path d="M -6 ${n(top + 56)} L -24 ${n(top + 100)} L 14 ${n(top + 92)} Z" fill="url(#${pid})" ${stroke(5)}/>`;
+                svg += `<circle cx="-2" cy="${n(top + 58)}" r="9" fill="${tone(C.gamchha, -0.15)}" ${stroke(4)}/>`;
+            } else {
+                svg += `<path d="M ${n(-C.bodyW * 0.34)} ${n(top + 2)} Q 0 ${n(top + 30)} ${n(C.bodyW * 0.34)} ${n(top + 2)} Q 0 ${n(top + 14)} ${n(-C.bodyW * 0.34)} ${n(top + 2)} Z" fill="${C.gamchha}" ${stroke(6)}/>`;
+                svg += `<path d="M ${n(-C.bodyW * 0.26)} ${n(top + 10)} Q 0 ${n(top + 30)} ${n(C.bodyW * 0.26)} ${n(top + 10)}" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-dasharray="9 12"/>`;
+            }
         } else {
             svg += `<ellipse cx="0" cy="${n(top + 8)}" rx="${n(C.bodyW * 0.3)}" ry="15" fill="${C.accent}" ${stroke(6)}/>`;
         }
@@ -554,6 +620,7 @@ function drawBody(C, g, m, t) {
         const sway = Math.sin(t * 2) * 3 - tr * 10;
         const d = `M ${n(-tw)} ${n(top + 20)} Q ${n(-tw)} ${n(top)} ${n(-tw + 20)} ${n(top)} L ${n(tw - 20)} ${n(top)} Q ${n(tw)} ${n(top)} ${n(tw)} ${n(top + 20)} Q ${n(bw * 0.9)} ${n(mid)} ${n(bw + sway)} ${n(bot - 6)} Q 0 ${n(bot + 14)} ${n(-bw + sway)} ${n(bot - 6)} Q ${n(-bw * 0.9)} ${n(mid)} ${n(-tw)} ${n(top + 20)} Z`;
         svg += `<path d="${d}" fill="${C.outfit}" ${stroke()}/>`;
+        svg += celShade(C, d, `${C._uid}-bd`, [-bw, top, bw, bot], C.outfit);
         svg += `<path d="M ${n(-bw * 0.97 + sway)} ${n(bot - 18)} Q 0 ${n(bot + 2)} ${n(bw * 0.97 + sway)} ${n(bot - 18)}" fill="none" stroke="${C.accent}" stroke-width="12" stroke-linecap="round"/>`;
         svg += limb(
             `M ${n(-tw * 0.7)} ${n(top + 6)} Q ${n(bw * 0.2)} ${n(mid - 10)} ${n(bw * 0.78)} ${n(bot - 36)}`,
@@ -569,7 +636,15 @@ function drawBody(C, g, m, t) {
         const tw = C.bodyW * 0.38;
         const bw = C.bodyW * 0.54;
         const sway = Math.sin(t * 2) * 2 - tr * 8;
-        svg += `<path d="M ${n(-tw)} ${n(top + 22)} Q ${n(-tw)} ${n(top)} ${n(-tw + 22)} ${n(top)} L ${n(tw - 22)} ${n(top)} Q ${n(tw)} ${n(top)} ${n(tw)} ${n(top + 22)} L ${n(bw + sway)} ${n(bot - 8)} Q ${n(bw + sway)} ${n(bot + 6)} ${n(bw - 16 + sway)} ${n(bot + 6)} L ${n(-bw + 16 + sway)} ${n(bot + 6)} Q ${n(-bw + sway)} ${n(bot + 6)} ${n(-bw + sway)} ${n(bot - 8)} Z" fill="${C.outfit}" ${stroke()}/>`;
+        const rd = `M ${n(-tw)} ${n(top + 22)} Q ${n(-tw)} ${n(top)} ${n(-tw + 22)} ${n(top)} L ${n(tw - 22)} ${n(top)} Q ${n(tw)} ${n(top)} ${n(tw)} ${n(top + 22)} L ${n(bw + sway)} ${n(bot - 8)} Q ${n(bw + sway)} ${n(bot + 6)} ${n(bw - 16 + sway)} ${n(bot + 6)} L ${n(-bw + 16 + sway)} ${n(bot + 6)} Q ${n(-bw + sway)} ${n(bot + 6)} ${n(-bw + sway)} ${n(bot - 8)} Z`;
+        svg += `<path d="${rd}" fill="${C.outfit}" ${stroke()}/>`;
+        svg += celShade(
+            C,
+            rd,
+            `${C._uid}-bd`,
+            [-bw, top, bw, bot + 6],
+            C.outfit,
+        );
         svg += `<path d="M ${n(-tw * 0.45)} ${n(top + 2)} L 0 ${n(top + 34)} L ${n(tw * 0.45)} ${n(top + 2)}" fill="${C.shirt}" ${stroke(5)}/>`;
         svg += `<path d="M 0 ${n(top + 34)} L 0 ${n(top + C.bodyH * 0.6)}" ${stroke(5)}/>`;
         const wy = top + C.bodyH * 0.5;
@@ -580,13 +655,27 @@ function drawBody(C, g, m, t) {
     // coat (Raazu)
     const tw = C.bodyW * 0.4;
     const bw = C.bodyW * 0.5;
-    svg += `<path d="${roundedTrapezoid(tw, bw, top, bot, 26)}" fill="${C.outfit}" ${stroke()}/>`;
-    svg += `<path d="M ${n(-tw * 0.5)} ${n(top + 2)} L ${n(tw * 0.5)} ${n(top + 2)} L 0 ${n(top + C.bodyH * 0.58)} Z" fill="${C.shirt}" ${stroke(5)}/>`;
-    svg += `<path d="M 0 ${n(top + C.bodyH * 0.58)} L 0 ${n(bot - 4)}" ${stroke(5)}/>`;
-    for (const k of [0.68, 0.84]) {
-        svg += `<circle cx="-11" cy="${n(top + C.bodyH * k)}" r="6" fill="${C.outfitDark}" ${stroke(3)}/>`;
+    const cd = roundedTrapezoid(tw, bw, top, bot, 26);
+    svg += `<path d="${cd}" fill="${C.outfit}" ${stroke()}/>`;
+    if (TOON) {
+        // closed coat (thumbnail design): placket, mustard buttons, patch pocket
+        svg += celShade(C, cd, `${C._uid}-bd`, [-bw, top, bw, bot], C.outfit);
+        svg += `<path d="M 8 ${n(top + 16)} L 8 ${n(bot - 2)}" ${stroke(5)}/>`;
+        for (const k of [0.32, 0.5, 0.68, 0.86]) {
+            svg += `<circle cx="24" cy="${n(top + C.bodyH * k)}" r="7.5" fill="${C.accent}" ${stroke(4)}/><circle cx="22" cy="${n(top + C.bodyH * k - 2)}" r="2.2" fill="#FFFFFF" opacity="0.8"/>`;
+        }
+        const px = -bw * 0.84;
+        const py = bot - C.bodyH * 0.34;
+        svg += `<path d="M ${n(px)} ${n(py)} L ${n(px + bw * 0.5)} ${n(py)} L ${n(px + bw * 0.48)} ${n(py + C.bodyH * 0.3)} Q ${n(px + bw * 0.25)} ${n(py + C.bodyH * 0.36)} ${n(px + bw * 0.02)} ${n(py + C.bodyH * 0.3)} Z" fill="${C.outfit}" ${stroke(5)}/>`;
+        svg += `<path d="M ${n(px - 3)} ${n(py)} L ${n(px + bw * 0.53)} ${n(py)} L ${n(px + bw * 0.5)} ${n(py + 14)} L ${n(px)} ${n(py + 14)} Z" fill="${C.outfitDark}" ${stroke(4)}/>`;
+    } else {
+        svg += `<path d="M ${n(-tw * 0.5)} ${n(top + 2)} L ${n(tw * 0.5)} ${n(top + 2)} L 0 ${n(top + C.bodyH * 0.58)} Z" fill="${C.shirt}" ${stroke(5)}/>`;
+        svg += `<path d="M 0 ${n(top + C.bodyH * 0.58)} L 0 ${n(bot - 4)}" ${stroke(5)}/>`;
+        for (const k of [0.68, 0.84]) {
+            svg += `<circle cx="-11" cy="${n(top + C.bodyH * k)}" r="6" fill="${C.outfitDark}" ${stroke(3)}/>`;
+        }
+        svg += `<path d="M ${n(bw * 0.3)} ${n(bot - 34)} L ${n(bw * 0.75)} ${n(bot - 34)}" stroke="${C.outfitDark}" stroke-width="6" stroke-linecap="round"/>`;
     }
-    svg += `<path d="M ${n(bw * 0.3)} ${n(bot - 34)} L ${n(bw * 0.75)} ${n(bot - 34)}" stroke="${C.outfitDark}" stroke-width="6" stroke-linecap="round"/>`;
     // scarf tail streams back with speed / wind
     const flutter = Math.sin(t * (6 + tr * 16)) * (8 + tr * 10);
     svg += limb(
@@ -653,12 +742,18 @@ function drawHairFront(C, R, t, yaw, m, wind) {
             s += `<path d="M ${p(a - w, 0.9)} Q ${p(a - w * 0.3, L * 0.95)} ${p(a + 0.05, L)} Q ${p(a + w * 0.4, L * 0.9)} ${p(a + w, 0.9)} Z" fill="${C.hairColor}" ${stroke()}/>`;
         }
         s += `<path d="${hairCap(R, { sideY: R * 0.12, fringeY: -R * 0.44, bumps: 4, depth: R * 0.24 })}" fill="${C.hairColor}" ${stroke()}/>`;
+    } else if (C.hair === "neat") {
+        // full rounded mop, side-swept fringe, one springy curl at the crown
+        const sway =
+            Math.sin(t * 3.3) * 4 - tr * 18 + Math.sin(t * 22) * wind * 6;
+        s += `<g transform="rotate(${n(sway)} ${n(R * 0.05)} ${n(-R * 1.0)})"><path d="M ${n(-R * 0.02)} ${n(-R * 0.98)} C ${n(-R * 0.1)} ${n(-R * 1.38)} ${n(R * 0.42)} ${n(-R * 1.46)} ${n(R * 0.36)} ${n(-R * 1.2)} C ${n(R * 0.3)} ${n(-R * 1.36)} ${n(R * 0.06)} ${n(-R * 1.3)} ${n(R * 0.12)} ${n(-R * 0.98)} Z" fill="${C.hairColor}" ${stroke()}/></g>`;
+        s += `<path d="M ${n(-R * 1.03)} ${n(R * 0.14)} C ${n(-R * 1.12)} ${n(-R * 0.9)} ${n(-R * 0.4)} ${n(-R * 1.16)} ${n(R * 0.12)} ${n(-R * 1.08)} C ${n(R * 0.82)} ${n(-R * 1.02)} ${n(R * 1.14)} ${n(-R * 0.52)} ${n(R * 1.03)} ${n(R * 0.14)} L ${n(R * 0.9)} ${n(-R * 0.3)} Q ${n(R * 0.62)} ${n(-R * 0.3)} ${n(R * 0.5)} ${n(-R * 0.56)} Q ${n(R * 0.2)} ${n(-R * 0.36)} ${n(-R * 0.3)} ${n(-R * 0.4)} Q ${n(-R * 0.1)} ${n(-R * 0.5)} ${n(-R * 0.06)} ${n(-R * 0.6)} Q ${n(-R * 0.5)} ${n(-R * 0.34)} ${n(-R * 0.9)} ${n(-R * 0.26)} Z" fill="${C.hairColor}" ${stroke()}/>`;
     } else if (C.hair === "swirl") {
         // one soft swirl lock on top (follows movement)
         const rot =
             -tr * 26 + Math.sin(t * 4) * 5 + Math.sin(t * 26) * wind * 6;
-        s += `<g transform="rotate(${n(rot)} 0 ${n(-R * 0.98)})"><path d="M ${n(-R * 0.22)} ${n(-R * 0.92)} C ${n(-R * 0.36)} ${n(-R * 1.42)} ${n(R * 0.36)} ${n(-R * 1.58)} ${n(R * 0.36)} ${n(-R * 1.22)} C ${n(R * 0.36)} ${n(-R * 1.02)} ${n(R * 0.08)} ${n(-R * 1.0)} ${n(R * 0.08)} ${n(-R * 1.18)} C ${n(R * 0.08)} ${n(-R * 1.28)} ${n(R * 0.2)} ${n(-R * 1.28)} ${n(R * 0.2)} ${n(-R * 1.2)} L ${n(R * 0.22)} ${n(-R * 0.9)} Z" fill="${C.hairColor}" ${stroke()}/></g>`;
         s += `<path d="${hairCap(R, { sideY: -R * 0.12, fringeY: -R * 0.56, bumps: 5, depth: R * 0.13 })}" fill="${C.hairColor}" ${stroke()}/>`;
+        s += `<g transform="rotate(${n(rot)} 0 ${n(-R * 1.2)})"><path d="M ${n(-R * 0.22)} ${n(-R * 1.1)} C ${n(-R * 0.36)} ${n(-R * 1.62)} ${n(R * 0.36)} ${n(-R * 1.74)} ${n(R * 0.36)} ${n(-R * 1.38)} C ${n(R * 0.36)} ${n(-R * 1.02)} ${n(R * 0.08)} ${n(-R * 1.0)} ${n(R * 0.08)} ${n(-R * 1.18)} C ${n(R * 0.08)} ${n(-R * 1.28)} ${n(R * 0.2)} ${n(-R * 1.28)} ${n(R * 0.2)} ${n(-R * 1.2)} L ${n(R * 0.22)} ${n(-R * 1.1)} Z" fill="${C.hairColor}" ${stroke()}/></g>`;
     } else if (C.hair === "bald") {
         // just a little fringe above the ears + a shine
         for (const sd of [-1, 1]) {
@@ -667,6 +762,11 @@ function drawHairFront(C, R, t, yaw, m, wind) {
         s += `<ellipse cx="${n(-R * 0.34)}" cy="${n(-R * 0.72)}" rx="${n(R * 0.16)}" ry="${n(R * 0.07)}" fill="#FFFFFF" opacity="0.45" transform="rotate(-20 ${n(-R * 0.34)} ${n(-R * 0.72)})"/>`;
     } else if (C.hair !== "none") {
         s += `<path d="${hairCap(R, { sideY: R * 0.05, fringeY: -R * 0.46, bumps: 2, depth: R * 0.16 })}" fill="${C.hairColor}" ${stroke()}/>`;
+    }
+    if (TOON && !["bald", "none"].includes(C.hair) && !C.headwear) {
+        // glossy hair shine band on the lit side
+        const sd = C._sd || 1;
+        s += `<path d="M ${n(-sd * R * 0.62)} ${n(-R * 0.78)} Q ${n(-sd * R * 0.3)} ${n(-R * 0.98)} ${n(sd * R * 0.04)} ${n(-R * 0.94)}" fill="none" stroke="${tone(C.hairColor, 0.38)}" stroke-width="${n(R * 0.07)}" stroke-linecap="round" opacity="0.8"/>`;
     }
     s += drawHeadwear(C, R);
     return `${s}</g>`;
@@ -780,10 +880,10 @@ function eyeMode(expression, talking) {
 function drawEyes(C, R, s, uid, proj) {
     const { expression = "neutral", talking = false, t = 0 } = s;
     const round = C.eyes === "round";
-    const ex = R * (round ? 0.4 : 0.36);
-    const ey = R * 0.06;
-    const rx = R * (round ? 0.2 : 0.18);
-    const ry = R * (round ? 0.23 : 0.25);
+    const ex = R * (round ? 0.4 : 0.37);
+    const ey = R * (TOON ? 0.02 : 0.06);
+    const rx = R * (round ? 0.2 : 0.18) * (TOON ? 1.14 : 1);
+    const ry = R * (round ? 0.23 : 0.25) * (TOON ? 1.1 : 1);
     const mode = eyeMode(expression, talking);
     const look = s.look || [0.55, 0];
     const blink = s.blink || 0;
@@ -864,8 +964,16 @@ function drawEyes(C, R, s, uid, proj) {
         const tremble = mode === "small" ? Math.sin(t * 14 + side) * 1.2 : 0;
         const prx = erx * (mode === "small" ? 0.34 : 0.52);
         const pry = ery * (mode === "small" ? 0.34 : 0.56);
-        svg += `<ellipse cx="${n(px + tremble)}" cy="${n(py)}" rx="${n(prx)}" ry="${n(pry)}" fill="${OUT}"/>`;
-        svg += `<circle cx="${n(px + tremble + prx * 0.35)}" cy="${n(py - pry * 0.4)}" r="${n(Math.max(2, prx * 0.38))}" fill="#FFFFFF"/>`;
+        if (TOON && mode !== "small") {
+            // iris + pupil + two highlights (rounder, more expressive eyes)
+            svg += `<ellipse cx="${n(px)}" cy="${n(py)}" rx="${n(prx)}" ry="${n(pry)}" fill="${C.iris || "#3A2A1E"}" ${stroke(3)}/>`;
+            svg += `<ellipse cx="${n(px)}" cy="${n(py + pry * 0.06)}" rx="${n(prx * 0.62)}" ry="${n(pry * 0.64)}" fill="${OUT}"/>`;
+            svg += `<circle cx="${n(px + prx * 0.34)}" cy="${n(py - pry * 0.38)}" r="${n(Math.max(3, prx * 0.36))}" fill="#FFFFFF"/>`;
+            svg += `<circle cx="${n(px - prx * 0.36)}" cy="${n(py + pry * 0.42)}" r="${n(Math.max(1.5, prx * 0.16))}" fill="#FFFFFF" opacity="0.9"/>`;
+        } else {
+            svg += `<ellipse cx="${n(px + tremble)}" cy="${n(py)}" rx="${n(prx)}" ry="${n(pry)}" fill="${OUT}"/>`;
+            svg += `<circle cx="${n(px + tremble + prx * 0.35)}" cy="${n(py - pry * 0.4)}" r="${n(Math.max(2, prx * 0.38))}" fill="#FFFFFF"/>`;
+        }
         if (mode === "lid") {
             const clip = `${uid}-lid${side}`;
             svg += `<defs><clipPath id="${clip}"><ellipse cx="${n(cx)}" cy="${n(ey)}" rx="${n(erx)}" ry="${n(ery)}"/></clipPath></defs>`;
@@ -901,7 +1009,7 @@ function drawEyes(C, R, s, uid, proj) {
         const outer = [cx + side * ib, by - lift[1] - talkLift * 0.5];
         if (expression === "curious" && side < 0)
             inner[1] += (by + 2 - inner[1]) * be;
-        svg += `<path d="M ${n(inner[0])} ${n(inner[1])} Q ${n(cx)} ${n(Math.min(inner[1], outer[1]) - 8)} ${n(outer[0])} ${n(outer[1])}" fill="none" ${stroke(9)}/>`;
+        svg += `<path d="M ${n(inner[0])} ${n(inner[1])} Q ${n(cx)} ${n(Math.min(inner[1], outer[1]) - 8)} ${n(outer[0])} ${n(outer[1])}" fill="none" ${stroke(TOON ? 13 : 9)}/>`;
     }
     // tears sit on top of the face clip (they may spill past the outline)
     let extra = "";
@@ -1130,6 +1238,19 @@ function drawHead(C, R, s, uid, m) {
     // every facial feature is head-local and clipped to the face shape
     const faceClip = `${uid}-face`;
     head += `<defs><clipPath id="${faceClip}"><ellipse cx="0" cy="0" rx="${n(faceRx - 2)}" ry="${n(faceRy - 2)}"/></clipPath></defs><g clip-path="url(#${faceClip})">`;
+    if (TOON) {
+        // two-tone cel shade (crescent on the side away from the key light)
+        const sd = C._sd || 1;
+        head += `<rect x="${n(-faceRx)}" y="${n(-faceRy)}" width="${n(faceRx * 2)}" height="${n(faceRy * 2)}" fill="${tone(C.skin, -0.16)}"/>`;
+        head += `<ellipse cx="${n(-sd * R * 0.15)}" cy="${n(-R * 0.12)}" rx="${n(faceRx * 0.99)}" ry="${n(faceRy * 1.01)}" fill="${C.skin}"/>`;
+        // rim light along the shadow-side edge
+        let rimD = "";
+        for (let i = 0; i <= 10; i++) {
+            const a = ((-40 + i * 11) * Math.PI) / 180;
+            rimD += `${i ? "L" : "M"} ${n(sd * Math.cos(a) * (faceRx - 5))} ${n(Math.sin(a) * (faceRy - 5))} `;
+        }
+        head += `<path d="${rimD}" fill="none" stroke="${C._rim || RIM}" stroke-width="7" stroke-linecap="round" stroke-opacity="0.8"/>`;
+    }
     for (const side of [-1, 1]) {
         const P = proj(side * R * 0.62);
         if (P.sc < 0.2) continue;
@@ -1167,6 +1288,11 @@ export function renderClassicCharacter(ch, state = {}) {
     const C = { ...ch.classic };
     const { x = 0, y = 0, scale = 1, t = 0 } = state;
     const facing = state.facing ?? (state.flip ? -1 : 1);
+    // world key light from the camera-left → shadow side in local coords
+    C._sd = facing >= 0 ? 1 : -1;
+    CUR_SD = C._sd;
+    C._uid = state.uid || `c-${ch.id}`;
+    C._rim = state.rim || null;
     const pose = state.pose || "idle";
     const s = { ...state, pose };
     const uid = state.uid || `c-${ch.id}`;

@@ -28,6 +28,13 @@ import {
     normalizeGuestSpec,
     guestId,
 } from "./guests.js";
+import {
+    diversifySettings,
+    normalizeSetting,
+    SETTING_PRESETS,
+    settingPromptHelp,
+    settingsForText,
+} from "./classic/settings.js";
 import { buildCharacterTimeline } from "./index.js";
 import { normalizeDialogue } from "./script.js";
 import { validateStaging } from "./stagingQA.js";
@@ -99,8 +106,8 @@ EPISODE SHAPE (${vertical ? "9:16 vertical Shorts" : "16:9 landscape"}):
 5. PUNCHLINE joke, then a short sign-off asking viewers to follow for more raaz.
 Total ${EPISODE_LIMITS.minLines + 4}-22 lines (about 45-90 seconds), each line max 110 characters, natural spoken Hindi.
 
-STRUCTURE: 1-${EPISODE_LIMITS.parts} "parts". Each part has EXACTLY 2 speakers in "cast" (left, right). Part 1 is Raazu + Golu. A guest appears in a later part together with one host (e.g. ["raazu", "guest1"]). Change the "background" between parts if the place changes.
-Backgrounds: "gali_day" (sunny Indian street), "haveli_night" (old mansion at night, for spooky or ancient topics), "plain".
+STRUCTURE: 1-${EPISODE_LIMITS.parts} "parts". Each part has EXACTLY 2 speakers in "cast" (left, right). Part 1 is Raazu + Golu. A guest appears in a later part together with one host (e.g. ["raazu", "guest1"]). Give every part a "setting" that shows WHERE that part of the story happens.
+${settingPromptHelp()}
 Each line: {"speaker": cast id or guest key, "text": Hindi line, "expression": one of ${JSON.stringify(EXPRESSIONS)}, "pose": one of ${JSON.stringify(SAFE_POSES)},
  "gesture": optional one of ${JSON.stringify(GESTURES)}, "look": optional "camera", "listener": {"expression": ..., "pose": ...},
  "beat": optional "humor"|"reveal", "reaction": {"expression", "pose", "text": short Hindi exclamation} (with humor beats),
@@ -110,7 +117,7 @@ Each line: {"speaker": cast id or guest key, "text": Hindi line, "expression": o
 ${vertical ? "Vertical frame: keep movement small (at most 3 actions in the whole episode)." : "Use a few walks/hops for liveliness (at most 5 actions in the episode)."}
 
 Return ONLY this JSON:
-{"title": "Hindi episode title", "mood": one of ${JSON.stringify(MOODS)}, "guests": [guest specs], "parts": [{"cast": ["raazu","golu"], "background": "gali_day", "positions": {"golu": "offR"}, "lines": [...]}], "searchQueries": ["2-3 English stock-footage queries for the topic"]}
+{"title": "Hindi episode title", "mood": one of ${JSON.stringify(MOODS)}, "guests": [guest specs], "parts": [{"cast": ["raazu","golu"], "setting": {"preset": "${Object.keys(SETTING_PRESETS)[0]}"}, "positions": {"golu": "offR"}, "lines": [...]}], "searchQueries": ["2-3 English stock-footage queries for the topic"]}
 
 USER SCRIPT:
 ${script}
@@ -222,7 +229,40 @@ function cleanLine(raw, cast, resolve, state) {
  * Validate + sanitize an AI episode. Never throws.
  * @returns {{ episode: object|null, errors: string[], warnings: string[] }}
  */
-export function sanitizeEpisode(raw, { dimension = "vertical" } = {}) {
+/**
+ * The setting of each part: the AI's spec / preset, else a legacy background,
+ * else one picked from the topic; consecutive parts never look the same.
+ */
+function partSettings(rawParts, parts, script) {
+    const topic = settingsForText(
+        `${script || ""} ${parts.flatMap((p) => p.lines.map((l) => l.text)).join(" ")}`,
+    );
+    const specs = parts.map((p, i) => {
+        const r = rawParts[i] || {};
+        const want = r.setting || r.background;
+        if (want && typeof want === "object") return want;
+        if (typeof want === "string" && want && !BACKGROUNDS.includes(want)) {
+            const spec = normalizeSetting(want, "");
+            if (spec.location !== "gali" || /gali|lane/i.test(want))
+                return spec;
+        }
+        if (typeof want === "string" && BACKGROUNDS.includes(want))
+            return { legacy: want };
+        return { preset: topic[i % topic.length] };
+    });
+    // legacy ids stay as they are; settings get diversified
+    const idx = specs.map((s, i) => (s.legacy ? -1 : i)).filter((i) => i >= 0);
+    const div = diversifySettings(idx.map((i) => specs[i]));
+    idx.forEach((i, k) => {
+        specs[i] = div[k];
+    });
+    return specs;
+}
+
+export function sanitizeEpisode(
+    raw,
+    { dimension = "vertical", script = "" } = {},
+) {
     const errors = [];
     const warnings = [];
     if (!raw || typeof raw !== "object" || !Array.isArray(raw.parts)) {
@@ -300,15 +340,28 @@ export function sanitizeEpisode(raw, { dimension = "vertical" } = {}) {
             if (!positions[id]) positions[id] = slot ? "right" : "left";
         parts.push({
             cast,
-            background: BACKGROUNDS.includes(p.background)
-                ? p.background
-                : "gali_day",
+            background: "gali_day",
             positions,
             lines,
+            _raw: p,
         });
     }
     // the hook talks to the viewer
     if (parts[0]?.lines[0]) parts[0].lines[0].look = "camera";
+    const settings = partSettings(
+        parts.map((p) => p._raw),
+        parts,
+        script,
+    );
+    parts.forEach((p, i) => {
+        delete p._raw;
+        const st = settings[i];
+        if (st.legacy) p.background = st.legacy;
+        else {
+            p.background = st.id;
+            p.setting = st;
+        }
+    });
     const total = parts.reduce((a, p) => a + p.lines.length, 0);
     if (!parts.length) errors.push("no usable parts");
     if (total < EPISODE_LIMITS.minLines)
@@ -370,6 +423,7 @@ export function partDialogues(episode, { dimension = "vertical" } = {}) {
         style: "classic",
         dimension: dimension === "horizontal" ? "horizontal" : "vertical",
         background: p.background,
+        ...(p.setting ? { settings: { [p.setting.id]: p.setting } } : {}),
         bgm: "none",
         sfx: false,
         cast: p.cast,
@@ -581,15 +635,32 @@ export function templateEpisode(script, { dimension = "vertical" } = {}) {
     );
     // split into parts of ≤ linesPerPart
     const parts = [];
-    for (let i = 0; i < lines.length; i += EPISODE_LIMITS.linesPerPart) {
+    const topic = settingsForText(script);
+    // 2-3 parts (different settings) even for a short episode
+    const nParts = Math.min(
+        EPISODE_LIMITS.parts,
+        Math.max(
+            Math.ceil(lines.length / EPISODE_LIMITS.linesPerPart),
+            lines.length >= 12 ? 3 : lines.length >= 6 ? 2 : 1,
+        ),
+    );
+    const per = Math.ceil(lines.length / nParts);
+    const tSettings = diversifySettings(
+        Array.from({ length: nParts }, (_, k) => ({
+            preset: topic[k % topic.length],
+        })),
+    );
+    for (let i = 0; i < lines.length; i += per) {
+        const st = tSettings[parts.length];
         parts.push({
             cast: ["raazu", "golu"],
-            background: parts.length % 2 ? "haveli_night" : "gali_day",
+            background: st.id,
+            setting: st,
             positions:
                 i === 0
                     ? { raazu: "left", golu: "offR" }
                     : { raazu: "left", golu: "right" },
-            lines: lines.slice(i, i + EPISODE_LIMITS.linesPerPart),
+            lines: lines.slice(i, i + per),
         });
     }
     return {
@@ -639,7 +710,7 @@ export async function writeEpisode(
     } = {},
 ) {
     const gen = generate || (await import("../ai/ai.factory.js")).generateJSON;
-    const opts = { dimension };
+    const opts = { dimension, script };
     const providers = availableProviders(provider, geminiApiKeys);
     const attempts = [];
     const ask = async (prompt) => {
@@ -654,6 +725,8 @@ export async function writeEpisode(
                             ? model
                             : undefined,
                     geminiApiKeys,
+                    // an episode is a long JSON answer
+                    timeoutMs: 90000,
                 });
                 return { res, provider: p };
             } catch (err) {
@@ -692,7 +765,7 @@ export async function writeEpisode(
         }
         try {
             const prompt =
-                round === 1
+                round === 1 || !previous
                     ? episodePrompt(script, opts)
                     : repairPrompt(script, previous, errors, opts);
             const { res, provider: used } = await ask(prompt);
@@ -721,6 +794,14 @@ export async function writeEpisode(
             errors = [String(err.message || err)];
             attempts.push({ round, ok: false, errors });
             onLog(`Episode round ${round} failed: ${errors[0].slice(0, 200)}`);
+            // a broken / empty answer or a busy model is worth one fresh try
+            if (
+                round === 1 &&
+                /invalid JSON|empty response|timeout|high demand|overloaded|unavailable|503/i.test(
+                    errors[0],
+                )
+            )
+                continue;
             break; // every provider failed: no point in a repair round
         }
     }
@@ -747,11 +828,19 @@ export function episodeScenes(episode, { dimension = "vertical" } = {}) {
         narration: dlg.lines.map((l) => l.text).join(" "),
         visualBrief: `${episode.title} — cartoon part ${i + 1}`,
         subject: "Raaz Explain Tv cartoon",
-        environment: dlg.background,
+        environment: (() => {
+            const st = dlg.settings?.[dlg.background];
+            return st
+                ? [st.preset || st.location, st.era, st.time, st.weather]
+                      .filter(Boolean)
+                      .join(", ")
+                : dlg.background;
+        })(),
         action: "character dialogue",
         cameraShot: "medium_shot",
         lightingMood:
-            dlg.background === "haveli_night"
+            dlg.background === "haveli_night" ||
+            ["night", "dusk"].includes(dlg.settings?.[dlg.background]?.time)
                 ? "dark_mysterious"
                 : "bright_natural",
         emotion: "humorous",

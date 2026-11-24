@@ -15,6 +15,7 @@
 import { ACTIONS, EXPRESSIONS, POSES } from "../../../constants/animation.js";
 export { characterAnimationFor } from "./flags.js";
 export { simplifyDialogue } from "./episode.js";
+import { SETTING_PRESETS, settingsForText } from "./classic/settings.js";
 import { normalizeDialogue, renderDialogueScene } from "./index.js";
 
 /** Speakers the AI may use (Sheru the dog never speaks; he is a stage reveal). */
@@ -48,7 +49,7 @@ For a "character" scene:
 - Also fill visualBrief/subject/environment/action/searchQueries/negativeKeywords as usual (used as a fallback visual).
 - Add "dialogue": {
     "cast": [two speaker ids, left then right],
-    "background": one of ["gali_day", "haveli_night", "plain"],
+    "background": a setting preset that matches WHERE this segment happens, one of ${JSON.stringify(Object.keys(SETTING_PRESETS))} (or "gali_day" / "haveli_night" for an everyday street / an old mansion),
     "lines": [2-${MAX_LINES} lines, each {
         "speaker": one of the cast,
         "text": a short Hindi line in Devanagari (max 120 characters) that conveys this segment's content conversationally,
@@ -177,11 +178,16 @@ export function sanitizeCharacterDialogue(
         };
     });
 
-    const background = ["gali_day", "haveli_night", "plain"].includes(
-        d.background,
-    )
-        ? d.background
-        : "gali_day";
+    const bgKey = String(d.background || "")
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_");
+    const background = ["gali_day", "haveli_night", "plain"].includes(bgKey)
+        ? bgKey
+        : SETTING_PRESETS[bgKey]
+          ? bgKey
+          : settingsForText(
+                `${scene.narration || ""} ${scene.environment || ""}`,
+            )[((Number(scene.id) || 1) - 1) % 3];
     const dialogue = {
         id: `scene-${scene.id || 1}`,
         title: String(scene.visualBrief || "").slice(0, 80),

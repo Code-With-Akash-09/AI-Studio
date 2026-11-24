@@ -6,6 +6,7 @@
  */
 import { renderBackground, renderRevealBeam } from "../backgrounds.js";
 import { createRandom } from "../random.js";
+import { getSetting, renderSettingLayers } from "./settings.js";
 
 const n = (v) => Math.round(v * 10) / 10;
 const LINE = "#4B3F63";
@@ -277,6 +278,8 @@ function foreground(layout, t) {
  */
 export function renderClassicLayers(id, layout, stage = {}) {
     const t = stage.t || 0;
+    const setting = getSetting(id);
+    if (setting) return renderSettingLayers(setting, layout, stage);
     if (id === "gali_day") {
         return {
             back: [

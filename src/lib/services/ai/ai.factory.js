@@ -14,6 +14,9 @@ export async function generateJSON({
     provider = "gemini",
     model,
     geminiApiKeys,
+    // per-attempt Gemini timeout (rotator default 15s; long outputs such as a
+    // full cartoon episode need more)
+    timeoutMs,
 }) {
     const targetProvider = (provider || "gemini").toLowerCase();
     const targetModel =
@@ -24,6 +27,7 @@ export async function generateJSON({
             prompt,
             model: targetModel,
             geminiApiKeys,
+            ...(timeoutMs ? { timeoutMs } : {}),
         });
     }
 

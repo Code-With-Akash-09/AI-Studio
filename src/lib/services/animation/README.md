@@ -239,6 +239,55 @@ book). Voices use the two Edge Hindi voices (Madhur / Swara) with pitch kept
 audibly apart from the hosts. Guest ids are derived from the spec, so resumed
 jobs re-create the same guest. Sheets: `node .scripts/animation/render-guests.mjs [out.png] [guests.json]`.
 
+### Script-driven settings (`classic/settings.js`)
+
+Backgrounds follow the script. Every episode part carries a `setting`: a preset
+name (`siberian_forest`, `siberian_blast`, `egypt_desert`, `egypt_tomb`,
+`rajasthan_fort_night`, `palace_hall`, `haunted_village`, `science_lab`,
+`outer_space`, `moon_surface`, … 25 in total) or a small spec:
+
+```json
+{"location": "taiga", "era": "1908", "time": "dusk", "weather": "fireball",
+ "props": ["fallen_trees", "stumps"], "palette": {"skyTop": "#3E2F73"}}
+```
+
+- `normalizeSetting()` validates it (unknown location → alias match → fallback,
+  bad colours dropped, max 4 props, interiors get no weather) and gives it a
+  stable id `set-<hash>`. Dialogues carry `settings: {id: spec}`, so a resumed /
+  re-normalized render draws the same picture (like `guests`).
+- Drawn from layered parametric SVG parts (sky with sun / moon / stars / clouds /
+  sky event, far range, mid layer, ground + props, translucent weather in
+  front) with parallax. 20 location types × 5 times × 9 weathers × 24 props;
+  the seed comes from the spec, so different scripts and parts look different.
+- No setting from the AI → keywords of the script pick a preset trio
+  (`settingsForText`, Hindi + English); consecutive parts that would look the
+  same get a new variant / time of day (`diversifySettings`). The template
+  episode now splits into 2–3 parts so even the fallback changes scene.
+- Mix mode: the AI may name a preset as a character scene's `background`; when
+  it does not, one is picked from the scene's narration.
+- Characters get the setting's rim-light colour (fireball orange, moonlight
+  blue…). Legacy `gali_day` / `haveli_night` / `plain` still work.
+- Contact sheet: `node .scripts/animation/render-settings.mjs out.png [vertical] [presets]`.
+
+### Character look (v8 "toon") and thumbnails
+
+The thumbnails came from an image model; the video is drawn by the code rig, so
+they never matched. The rig now follows the thumbnail design (default
+`ANIMATION_CLASSIC_LOOK=toon`, `flat` = old look): heavier ink lines (LW 9),
+two-tone cel shading on face / body / sleeves (key light from camera-left in
+world space), a rim light, bigger eyes with iris + pupil + two highlights,
+thicker brows, hair shine. Raazu: neat dark-brown hair with one curl, round
+thin glasses, closed teal coat with mustard buttons + patch pocket, a bit
+taller. Golu: red-white checked gamchha with a knot, bigger top swirl. Mouth
+anchor / lip-sync and staging are unchanged (rig-qa --staging: 0 violations).
+
+Thumbnails now come from the SAME rig + setting:
+`node .scripts/animation/render-thumbnail.mjs --setting=siberian_forest --title="आसमान में | धमाका!" --dim=16x9 --out=thumb.jpg --plate=plate.png`
+(`|` = line break; libass shapes the Devanagari). If an image model is used
+for polish, pass the plate (+ a rig reference sheet) as reference images with
+`thumbnailPrompt()` from `thumbnail.js` — it tells the model to keep the exact
+rig design instead of inventing characters.
+
 ### Edge TTS resilience
 
 `synthesizeLine()` retries Edge TTS with a long backoff (0, 3, 8, 15, 30 s;

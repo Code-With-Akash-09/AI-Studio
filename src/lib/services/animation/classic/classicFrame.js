@@ -76,6 +76,7 @@ export function buildClassicFrameSvg(timeline, frame, frameIndex) {
             ...state,
             fallDir: fallDirection(layout, camera, actor, state),
             uid,
+            rim: layers.rim || undefined,
         });
         chars += partial ? anchorClips(body) : body;
     }

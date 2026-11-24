@@ -45,6 +45,12 @@ import {
 import { BACKGROUND_IDS } from "./backgrounds.js";
 import { CHARACTERS } from "./characters.js";
 import { registerGuests } from "./guests.js";
+import {
+    getSetting,
+    isSettingId,
+    registerSetting,
+    SETTING_PRESETS,
+} from "./classic/settings.js";
 
 function normExpression(value, fallback = "neutral") {
     const v = String(value || "")
@@ -101,6 +107,30 @@ export function normalizeDialogue(input) {
     const guests = Array.isArray(input.guests)
         ? registerGuests(input.guests)
         : { ids: [], characters: [] };
+    // script-driven settings (backgrounds): { "set-ab12cd34": spec } or specs
+    // inline as `background: {...}` / a preset name
+    const settingAlias = new Map();
+    if (input.settings && typeof input.settings === "object") {
+        for (const [key, spec] of Object.entries(input.settings)) {
+            settingAlias.set(key, registerSetting(spec));
+        }
+    }
+    const usedSettings = new Set();
+    const resolveBg = (v) => {
+        let id = null;
+        if (typeof v === "string" && BACKGROUND_IDS.includes(v)) return v;
+        if (v && typeof v === "object") id = registerSetting(v);
+        else if (typeof v === "string" && settingAlias.has(v))
+            id = settingAlias.get(v);
+        else if (typeof v === "string" && isSettingId(v)) id = v;
+        else if (
+            typeof v === "string" &&
+            SETTING_PRESETS[v.toLowerCase().replace(/[\s-]+/g, "_")]
+        )
+            id = registerSetting(v);
+        if (id) usedSettings.add(id);
+        return id;
+    };
     const cast = Array.isArray(input.cast) ? input.cast.slice(0, 2) : [];
     if (cast.length !== 2) {
         throw new Error("Dialogue cast must list exactly 2 character ids.");
@@ -168,9 +198,7 @@ export function normalizeDialogue(input) {
                 line.stage && typeof line.stage === "object"
                     ? line.stage
                     : null,
-            background: BACKGROUND_IDS.includes(line.background)
-                ? line.background
-                : null,
+            background: resolveBg(line.background),
             gesture: GESTURES.includes(line.gesture) ? line.gesture : null,
             actions: normActions(line.actions, cast),
             pauseAfter: Math.min(
@@ -185,9 +213,7 @@ export function normalizeDialogue(input) {
         title: String(input.title || ""),
         language: input.language || "hi",
         dimension: input.dimension === "vertical" ? "vertical" : "horizontal",
-        background: BACKGROUND_IDS.includes(input.background)
-            ? input.background
-            : "plain",
+        background: resolveBg(input.background) || "plain",
         // voices-only by default: BGM and SFX are strictly opt-in
         bgm:
             typeof input.bgm === "string" && input.bgm && input.bgm !== "none"
@@ -212,6 +238,10 @@ export function normalizeDialogue(input) {
                   )
                 : {},
         guests: guests.characters.map((c) => c.guestSpec),
+        // self-describing so a resumed / re-normalized render redraws the same
+        settings: Object.fromEntries(
+            [...usedSettings].map((id) => [id, getSetting(id)]),
+        ),
         watermark:
             input.watermark === undefined
                 ? "Raaz Explain Tv"
