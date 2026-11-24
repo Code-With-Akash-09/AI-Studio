@@ -8,7 +8,11 @@
  *   - occluded: a head (or more than half a torso) covered by someone drawn
  *               in front, or by a foreground prop,
  *   - peek:     a hiding character shows less than ~half the head,
- *   - pop:      something appears (or vanishes) in one frame without a cut.
+ *   - pop:      something appears (or vanishes) in one frame without a cut,
+ *   - end:      someone cut by the frame edge in the last second / last
+ *               frame of the part (exits included: full character or none).
+ * Outside wide shots, a character half cut by the left / right edge is an
+ * "edge" violation too (only an extreme eye close-up may crop its subject).
  */
 import {
     boxArea,
@@ -21,6 +25,8 @@ import { frameState } from "./timeline.js";
 
 const EDGE_TOL = 6; // px
 const POP_JUMP = 0.35;
+/** The last END_WINDOW seconds (and the last frame) get the strict check. */
+const END_WINDOW = 1.0;
 
 function toScreen(layout, cam, b) {
     if (!b) return null;
@@ -146,16 +152,38 @@ export function validateStaging(timeline, opts = {}) {
         }
         const at = { frame: f, t: Number(t.toFixed(2)), shot: frame.shot };
 
-        // 1. frame edges
+        // 1. frame edges. Wide shots: nobody cut at all (top included).
+        // Every other shot: nobody cut in half by the left / right edge (full
+        // character or none) — except the subject of an extreme eye close-up.
+        const loose =
+            frame.fx?.dramatic && frame.fx.dramatic.phase === "eye"
+                ? frame.fx.dramatic.who
+                : null;
+        // the ~0.2s crash zoom of a dramatic beat is camera motion
+        const crash = frame.fx?.dramatic?.phase === "punch";
+        const tail = t >= timeline.duration - END_WINDOW || f === nFrames - 1;
         for (const it of items) {
             const b = it.core;
-            const cut =
-                b.x0 < -EDGE_TOL ||
-                b.x1 > layout.width + EDGE_TOL ||
-                b.y0 < -EDGE_TOL;
+            const sideCut =
+                (b.x0 < -EDGE_TOL && b.x1 > EDGE_TOL) ||
+                (b.x0 < layout.width - EDGE_TOL &&
+                    b.x1 > layout.width + EDGE_TOL);
+            const cut = sideCut || b.y0 < -EDGE_TOL;
             const inFrame = visibleFraction(layout, b) > 0;
             if (wide && cut && inFrame && !it.transit)
                 add({ kind: "edge", who: it.who, ...at });
+            else if (
+                !wide &&
+                sideCut &&
+                !it.transit &&
+                it.who !== loose &&
+                !crash
+            )
+                add({ kind: "edge", who: it.who, ...at });
+            // 1b. the end of a part / video (last second, last frame): full
+            // characters or none, exits included
+            if (tail && sideCut && it.who !== loose)
+                add({ kind: "end", who: it.who, ...at });
         }
         // 2. subject of a close shot
         if (frame.subject) {

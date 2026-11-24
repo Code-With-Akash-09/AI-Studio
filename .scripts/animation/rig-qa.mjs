@@ -247,6 +247,7 @@ async function stagingReport() {
     const report = [];
     let total = 0;
     let rendered = 0;
+    const camStats = [];
     for (const c of run) {
         for (const dim of ["horizontal", "vertical"]) {
             const raw = c.dialogueFor
@@ -281,6 +282,20 @@ async function stagingReport() {
                 tl = buildTimeline(d, audio, { width, height, fps: ANIME_FPS });
             }
             const res = validateStaging(tl);
+            if (flag("camstats")) {
+                // dramatic close-ups the no-half-character fitter had to open wide
+                let eye = 0;
+                let wide = 0;
+                const n = Math.ceil(tl.duration * ANIME_FPS);
+                for (let f = 0; f < n; f++) {
+                    const fr = frameState(tl, f / ANIME_FPS, f);
+                    const ph = fr.fx?.dramatic?.phase;
+                    if (ph !== "eye") continue;
+                    eye++;
+                    if (fr.camera.s <= 1.001) wide++;
+                }
+                if (wide) camStats.push(`${c.name}/${dim}: ${wide}/${eye}`);
+            }
             const n = Object.values(res.counts).reduce((a, b) => a + b, 0);
             total += n;
             report.push({
@@ -352,6 +367,10 @@ async function stagingReport() {
     console.log(
         `staging: ${total} violation frame(s) across ${report.length} runs → ${path.join(outDir, "staging-report.json")}`,
     );
+    if (camStats.length)
+        console.log(
+            `dramatic beats held on a steady shot (eye frames at s≈1): ${camStats.join(", ")}`,
+        );
     fs.rmSync(work, { recursive: true, force: true });
     if (total) process.exitCode = 1;
 }

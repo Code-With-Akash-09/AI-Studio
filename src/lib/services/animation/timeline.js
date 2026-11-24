@@ -17,7 +17,9 @@ import { characterHeight } from "./rig.js";
 import { createRandom, hashString } from "./random.js";
 import {
     SAFE_AREA,
+    characterBoxes,
     coreHalfWidth,
+    isOffStage,
     planSheru,
     sheruAt,
     sheruBox,
@@ -149,8 +151,18 @@ export function buildTimeline(dialogue, lineAudio, { width, height, fps }) {
                       : 0.25,
           })
         : null;
-    let total = acting ? Math.max(duration, acting.end + 0.9) : duration;
-    if (sheru) total = Math.max(total, sheru.t1 + 1, sheru.end + 0.3);
+    // every walk-off / trot-out has finished (fully off-stage) before the
+    // last second of the part: its final frames show full characters or none
+    let total = acting ? Math.max(duration, acting.end + 1.15) : duration;
+    if (sheru) {
+        const lastMove = Math.max(
+            sheru.t1,
+            ...(sheru.segs || [])
+                .map((sg) => sg.t1)
+                .filter((v) => Number.isFinite(v)),
+        );
+        total = Math.max(total, sheru.t1 + 1, sheru.end + 0.3, lastMove + 1.15);
+    }
 
     return {
         dialogue,
@@ -313,6 +325,106 @@ function cameraKey(ev) {
     return ev.camera;
 }
 
+/** Is the actor mid entrance / exit from off-stage at t (classic acting)? */
+export function transitingAt(timeline, actorId, t) {
+    const tr = timeline.acting?.tracks?.[actorId];
+    if (!tr) return false;
+    const { layout } = timeline;
+    return tr.segs.some(
+        (sg) =>
+            t >= sg.t0 - 0.05 &&
+            t <= sg.t1 + 0.05 &&
+            Number.isFinite(sg.x0) &&
+            Number.isFinite(sg.x1) &&
+            (isOffStage(layout, sg.x0) || isOffStage(layout, sg.x1)),
+    );
+}
+
+const PARTIAL_MARGIN = 10; // screen px
+
+/**
+ * "Full character or none": nudge (or, if needed, widen) a framing so that
+ * nobody standing on stage is cut in half by the left / right frame edge.
+ * The shot's subject stays fully inside; everyone else ends up fully inside
+ * or fully outside. Boxes are world-space core boxes {x0, x1, id}.
+ * `loose`: the subject itself may be cropped (extreme eye close-up).
+ * `keepScale`: never zoom out to find a fit (crash-zoom motion).
+ */
+export function fitNoPartial(
+    layout,
+    cam,
+    boxes,
+    subject,
+    loose = false,
+    keepScale = false,
+) {
+    const W = layout.width;
+    const H = layout.height;
+    const solve = (s) => {
+        const half = W / (2 * s);
+        if (half * 2 > W + 0.5) return null;
+        let allowed = [[half, W - half]];
+        const cut = (opts) => {
+            const out = [];
+            for (const [a, b] of allowed)
+                for (const [c, d] of opts) {
+                    const lo = Math.max(a, c);
+                    const hi = Math.min(b, d);
+                    if (lo <= hi) out.push([lo, hi]);
+                }
+            allowed = out;
+        };
+        const m = PARTIAL_MARGIN / s;
+        for (const b of boxes) {
+            const inside = [b.x1 + m - half, b.x0 - m + half];
+            if (b.id === subject && !loose) cut([inside]);
+            else
+                cut([
+                    inside,
+                    [-Infinity, b.x0 - half - m],
+                    [b.x1 + half + m, Infinity],
+                ]);
+            if (!allowed.length) return null;
+        }
+        let best = null;
+        for (const [a, b] of allowed) {
+            const x = Math.min(b, Math.max(a, cam.x));
+            if (best === null || Math.abs(x - cam.x) < Math.abs(best - cam.x))
+                best = x;
+        }
+        return best;
+    };
+    const x0 = solve(cam.s);
+    if (x0 !== null) return { ...cam, x: x0 };
+    // the ~0.2s crash zoom keeps its scale (no zoom jump mid-punch)
+    if (keepScale) return cam;
+    // an eye close-up may push in tighter to lose a neighbour's sliver
+    if (loose)
+        for (let s = cam.s + 0.1; s <= cam.s * 1.6; s += 0.1) {
+            const x = solve(s);
+            if (x !== null) {
+                const halfH = H / (2 * s);
+                return {
+                    s,
+                    x,
+                    y: Math.min(H - halfH, Math.max(halfH, cam.y)),
+                };
+            }
+        }
+    for (let s = cam.s - 0.05; s > 1.0001; s -= 0.05) {
+        const x = solve(s);
+        if (x !== null) {
+            const halfH = H / (2 * s);
+            return {
+                s,
+                x,
+                y: Math.min(H - halfH, Math.max(halfH, cam.y)),
+            };
+        }
+    }
+    return { s: 1, x: W / 2, y: H / 2 };
+}
+
 /** Clamp the camera so zoomed frames never show outside the stage. */
 function clampCamera(cam, layout) {
     const halfW = layout.width / (2 * cam.s);
@@ -335,6 +447,33 @@ export function activeEventIndex(timeline, t) {
 /**
  * Full frame state at time t.
  */
+let probingEye = false;
+let fitMiss = false;
+
+/** Does a dramatic beat's whole eye close-up (starting at t0) fit without
+ *  a half-cut neighbour on every frame? Memoised per beat. */
+function eyeShotFits(timeline, t0) {
+    const memo = (timeline._eyeFit ??= new Map());
+    const key = t0.toFixed(3);
+    if (!memo.has(key)) {
+        let ok = true;
+        probingEye = true;
+        try {
+            const step = 1 / (timeline.fps || 24);
+            for (let s = DRAMATIC.punch; s < DRAMATIC.eye && ok; s += step) {
+                fitMiss = false;
+                frameState(timeline, t0 + s, 0);
+                if (fitMiss) ok = false;
+            }
+        } finally {
+            probingEye = false;
+            fitMiss = false;
+        }
+        memo.set(key, ok);
+    }
+    return memo.get(key);
+}
+
 export function frameState(timeline, t, frameIndex) {
     const { events, actors, layout } = timeline;
     const idx = activeEventIndex(timeline, t);
@@ -421,6 +560,7 @@ export function frameState(timeline, t, frameIndex) {
 
     // Classic dramatic beat: zoom-punch → intense eye close-up → action pose
     const drama = timeline.acting ? dramaticAt(timeline, t) : null;
+    const preDrama = camera;
     if (drama) {
         const a = actors[drama.who];
         const f = actorFocus(timeline, a, t);
@@ -535,6 +675,54 @@ export function frameState(timeline, t, frameIndex) {
         }
         return { actor, state };
     });
+
+    // classic: no character cut in half by the frame edge (except one
+    // walking in / out from off-stage, which is motion, not framing)
+    if (classic && timeline.acting) {
+        const subj = drama
+            ? drama.who
+            : camEv?.camera === "listener"
+              ? camEv.listenerId
+              : ["speaker", "closeup"].includes(camEv?.camera)
+                ? camEv.speaker
+                : null;
+        const boxes = [];
+        for (const { actor, state } of chars) {
+            if (transitingAt(timeline, actor.id, t)) continue;
+            const fx = state.x ?? actor.x;
+            if (isOffStage(layout, fx)) continue;
+            const b = characterBoxes(actor, state).core;
+            boxes.push({ x0: b.x0, x1: b.x1, id: actor.id });
+        }
+        // a standing Sheru counts too (trotting in / out is motion)
+        const dog = sheruAt(timeline.sheru, t);
+        if (dog && !dog.moving && !dog.entering && !isOffStage(layout, dog.x)) {
+            const b = sheruBox(dog.x, dog.groundY, dog.scale, dog.facing);
+            boxes.push({ x0: b.x0, x1: b.x1, id: "sheru" });
+        }
+        const eye = drama?.phase === "eye";
+        const punch = drama?.phase === "punch";
+        if (boxes.length) {
+            const fitted = fitNoPartial(
+                layout,
+                camera,
+                boxes,
+                subj,
+                eye,
+                punch,
+            );
+            if (eye && probingEye) fitMiss = fitted.s < camera.s - 1e-6;
+            else if (
+                (eye || punch) &&
+                !probingEye &&
+                !eyeShotFits(timeline, t - drama.s)
+            )
+                // this beat's eye close-up would show a half neighbour: hold
+                // one steady shot (no crash zoom, no flicker to a wide)
+                camera = fitNoPartial(layout, preDrama, boxes, subj);
+            else camera = fitted;
+        }
+    }
 
     // Anime FX flags
     const fx = { focus: null, speed: 0, impact: false, letterbox: 0 };
