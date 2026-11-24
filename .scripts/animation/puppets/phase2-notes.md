@@ -48,3 +48,5 @@ teeth, NOT sticking out. Thin white gutters between cells."
 - 22:00 L tongue-out fix: grid prompt cell 9 now "tongue tip hidden just behind the upper teeth, tongue NOT visible outside the mouth"
   (Chiku grids came out clean with it); existing tongue-out L cells pruned L=I: bittu-idle/surprised/sit, ramesh-papa-explain/surprised
   (+ chiku-idle/explain/think after build). Rule from now: check every sheet's L column, prune L=I where the tongue shows.
+- 22:05 Meera Maa DONE: eyefix on 6 poses (all but laugh); kits poses/p2/meera-maa-*; check _check/meera-maa-mouths.jpg (clean, no smears).
+  Prunes: L=I on idle/explain/think/offer/sit (tongue out). Flaws: bindi missing on some poses (body gens), think mouths small.
