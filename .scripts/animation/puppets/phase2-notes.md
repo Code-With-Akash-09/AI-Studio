@@ -35,3 +35,8 @@ teeth, NOT sticking out. Thin white gutters between cells."
 - 21:15 Bittu DONE (rebuild with key-spill fix, prunes re-applied). Kits: poses/p2/bittu-{idle,explain,surprised,laugh,think,offer,sit}
   check: _check/bittu-mouths.jpg. Flaws: think mouths small set (base,closed,MBP,I,O,U,L); L tongue-out in idle/surprised/sit.
   Committed locally (scripts + notes; kit PNGs stay in /workspace/anim-demo, not in the repo, same as v4-v6).
+- 21:20 p2_build: grid cells inset past the white gutters (gutter pixels broke the key's bg estimate -> NaN alpha, broken cells);
+  outside the base silhouette only pixels far from BOTH screen colours (body key and the grid's own darker shade) are kept
+  (the magenta/green cheek smears in the Kabir sheet came from the grid's darker screen shade).
+- 21:31 Ramesh Papa DONE: eyefix on surprised; kits poses/p2/ramesh-papa-*; check _check/ramesh-papa-mouths.jpg.
+  Prunes: think O=U (blank-glasses cell). Flaws: surprised blink cell is a one-eye wink; L tongue-out on explain; moustache hides MBP/U.

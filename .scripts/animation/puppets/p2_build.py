@@ -41,16 +41,20 @@ def build(name, base_open=True):
     if name in REG_TOP:                                                  # hand near the mouth: register on hair + eyes only
         ysP = np.where(P[..., 3] > 128)[0]; dmask = np.zeros((1024, 1024), np.uint8); dmask[:int(ysP.min() + 0.55 * (ysP.max() - ysP.min()))] = 255
     for i, nm in enumerate(CELLS):
-        r, c = divmod(i, cols); cell = grid[r * gh // rows:(r + 1) * gh // rows, c * gw // cols:(c + 1) * gw // cols]
+        r, c = divmod(i, cols); ins = max(4, gh // 120)                # inset past the white gutters (they broke the key's bg estimate)
+        cell = grid[r * gh // rows + ins:(r + 1) * gh // rows - ins, c * gw // cols + ins:(c + 1) * gw // cols - ins]
         cell = np.clip(sr_kit.sr_rgb(np.ascontiguousarray(cell)), 0, 255).astype(np.uint8)
         M, n = sift_reg(cell, src, dmask)
         if M is None: print(name, nm, 'NO REGISTRATION', n); continue
-        ck, _, _ = chroma_key(cell)
+        ck, cbg, _ = chroma_key(cell)
         W = cv2.warpAffine(ck.astype(np.float32), M, (1024, 1024), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0))
         # inside the base silhouette trust the cell's own paint: dark/greenish mouth interiors can key as semi-transparent,
         # which showed up as see-through ghost outlines
         raw = cv2.warpAffine(cell.astype(np.float32), M, (1024, 1024), flags=cv2.INTER_CUBIC)
-        far = np.abs(raw - np.float32(box['key'])).max(-1) > 90          # clearly not the screen colour (no key spill)
+        far = (np.abs(raw - np.float32(box['key'])).max(-1) > 90) & (np.abs(raw - np.float32(cbg)).max(-1) > 90)  # not either screen colour
+        # outside the base silhouette only keep clearly-painted pixels: the grid's own screen shade (often darker than the body's)
+        # leaks through the key as semi-opaque pink/green smears beside the cheek
+        W[(P[..., 3] <= 200) & ~far, 3] = 0
         inside = (P[..., 3] > 200) & far & (W[..., 3] > 20) & (cv2.warpAffine(np.ones(cell.shape[:2], np.float32), M, (1024, 1024)) > 0.99)
         W[inside, :3] = raw[inside]; W[inside, 3] = 255
         cells[nm] = (W, n, float(np.hypot(M[0, 0], M[1, 0])))
