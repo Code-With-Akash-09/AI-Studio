@@ -1,0 +1,23 @@
+{
+  "_doc": "Painted-puppet cast (original characters). kit = poses/p2/<kit>-<pose>. metres = standing height (top of head). Voices: Edge TTS (hi-IN has one male + one female neural voice; characters differ by pitch/rate). Bholu never speaks.",
+  "cast": [
+    {"id": "kabir", "name": "Kabir", "nameHi": "कबीर", "role": "curious 14-year-old mystery solver with glasses, teal jacket and satchel; calm, explains with evidence", "gender": "male", "age": "teen", "metres": 1.55, "speaks": true,
+     "voice": {"name": "hi-IN-MadhurNeural", "rate": "+6%", "pitch": "+14Hz"}, "aliases": ["kabeer", "कबीर"]},
+    {"id": "bittu", "name": "Bittu", "nameHi": "बिट्टू", "role": "Kabir's chubby, funny best friend in an orange kurta; easily scared, food jokes, silly guesses", "gender": "male", "age": "kid", "metres": 1.32, "speaks": true,
+     "voice": {"name": "hi-IN-MadhurNeural", "rate": "+10%", "pitch": "+32Hz"}, "aliases": ["bitu", "बिट्टू", "बिटटू"]},
+    {"id": "chiku", "name": "Chiku", "nameHi": "चीकू", "role": "Kabir's little cousin (8) in a red T-shirt with a magnifying glass; asks 'kyun?' about everything", "gender": "male", "age": "child", "metres": 1.15, "speaks": true,
+     "voice": {"name": "hi-IN-SwaraNeural", "rate": "+12%", "pitch": "+18Hz"}, "aliases": ["cheeku", "चीकू", "चिकू"]},
+    {"id": "anaya-didi", "name": "Anaya Didi", "nameHi": "अनाया दीदी", "role": "Kabir's college-going elder sister; science student, sharp and witty, gives the real facts", "gender": "female", "age": "young adult", "metres": 1.58, "speaks": true,
+     "voice": {"name": "hi-IN-SwaraNeural", "rate": "+5%", "pitch": "+4Hz"}, "aliases": ["anaya", "didi", "अनाया", "अनाया दीदी", "दीदी"]},
+    {"id": "meera-maa", "name": "Meera Maa", "nameHi": "मीरा माँ", "role": "Kabir's warm, practical mother in a green salwar suit; worries, then laughs", "gender": "female", "age": "adult", "metres": 1.55, "speaks": true,
+     "voice": {"name": "hi-IN-SwaraNeural", "rate": "+0%", "pitch": "-4Hz"}, "aliases": ["meera", "maa", "mummy", "मीरा", "माँ", "मीरा माँ", "मम्मी"]},
+    {"id": "ramesh-papa", "name": "Ramesh Papa", "nameHi": "रमेश पापा", "role": "Kabir's father with glasses and a moustache, blue shirt; office-going, dad jokes, sceptical", "gender": "male", "age": "adult", "metres": 1.72, "speaks": true,
+     "voice": {"name": "hi-IN-MadhurNeural", "rate": "+0%", "pitch": "-6Hz"}, "aliases": ["ramesh", "papa", "रमेश", "पापा", "रमेश पापा"]},
+    {"id": "kamla-dadi", "name": "Kamla Dadi", "nameHi": "कमला दादी", "role": "grandmother in a purple saree with round glasses and a walking stick; loves old stories and legends", "gender": "female", "age": "elder", "metres": 1.45, "speaks": true,
+     "voice": {"name": "hi-IN-SwaraNeural", "rate": "-10%", "pitch": "-14Hz"}, "aliases": ["kamla", "dadi", "कमला", "दादी", "कमला दादी"]},
+    {"id": "hariprasad-dadaji", "name": "Hariprasad Dadaji", "nameHi": "हरिप्रसाद दादाजी", "role": "grandfather with white hair, square glasses and a white moustache, grey cardigan; retired history teacher", "gender": "male", "age": "elder", "metres": 1.62, "speaks": true,
+     "voice": {"name": "hi-IN-MadhurNeural", "rate": "-10%", "pitch": "-14Hz"}, "aliases": ["hariprasad", "dadaji", "dadu", "हरिप्रसाद", "दादाजी", "दादू"]},
+    {"id": "bholu", "name": "Bholu", "nameHi": "भोलू", "role": "the family's brown-and-white dog with a red collar; never speaks, reacts (tilts head, wags, sits)", "gender": "male", "age": "dog", "metres": 0.62, "speaks": false, "dog": true,
+     "voice": null, "aliases": ["भोलू", "dog", "कुत्ता"]}
+  ]
+}

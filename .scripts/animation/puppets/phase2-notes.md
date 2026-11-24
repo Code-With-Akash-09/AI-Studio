@@ -74,3 +74,13 @@ teeth, NOT sticking out. Thin white gutters between cells."
   (p2_castsheet.py; standing poses share a height, seated = 74%). Sample: puppets/p2sample/p2-sample.mp4 (13.1 s, 1920x1080,
   Kabir + Kamla Dadi + Bittu, talk3 lines k1/k2/d1, 6 shots, fine visemes; contact stills/phase2/sample-contact.jpg).
   Sample flaws: bittu-cu crops Kabir's head at the frame top; only Kabir and Dadi speak (Bittu reacts).
+
+## Milestones 2-4 (user approved the cast 23:00: "Cast looks good, go ahead and connect it to AI Studio")
+Code lives in the worktree at src/lib/services/animation/painted/ (python next to the JS, like tts_line.py).
+- 23:25 M2 step 1: engine.py (generic renderer lib from talk_test_v6: Stage = painted plate + ground-plane calibration, Kit/KitBank
+  bounded caches, warp, grade, shadows, DOF, blinks), plan.py (blocking with the 180-degree rule, emotion->pose, shot sizes
+  wide/two/OTS/CU/react/insert, cuts at word boundaries every 1.3-4 s, framing guard: subject heads in with headroom, any other
+  head fully in or fully out -> fixes the Bittu-CU half-head; plate headroom moves the line upstage), render.py (plan + line
+  wavs -> 1920x1080 25 fps + 44.1 kHz stereo AAC, chunked parallel workers), cast.json (9 cast, Edge TTS voices/pitch), stages.json.
+  Test: puppets/painted-test (talk3 lines, 4 actors incl. Bholu): plan has no guard issues; contact painted-test/contact.jpg OK.
+  Next: painted prop inserts + extra painted backgrounds, then the JS step (writer, TTS, pipeline mode).

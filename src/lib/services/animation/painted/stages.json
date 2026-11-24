@@ -1,0 +1,6 @@
+{
+  "_doc": "Painted background plates. horizon/cam_h/floor/xrange in world units (1280x720 plate px); path relative to PUPPET_ROOT/scenes when not found here; scale = plate image px per world unit.",
+  "stages": [
+    {"id": "courtyard", "label": "home courtyard (day)", "path": "courtyard-v4-x4.png", "scale": 4, "horizon": 201, "cam_h": 0.79, "floor": [360, 405], "xrange": [470, 1110], "time": "day", "tags": ["home", "ghar", "aangan", "courtyard", "day"]}
+  ]
+}
