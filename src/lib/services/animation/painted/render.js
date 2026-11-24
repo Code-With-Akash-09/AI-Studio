@@ -170,6 +170,31 @@ async function planPart(dir, spec, tag) {
 }
 
 /**
+ * Voice + plan one part (no rendering). Staging guard: the planner's framing
+ * issues must be empty, else one simplified re-plan, else throws.
+ */
+export async function planPaintedPart(part, dir, { onLog = () => {} } = {}) {
+    fs.mkdirSync(dir, { recursive: true });
+    const lines = await voiceLines(part, dir);
+    let { planPath, plan } = await planPart(dir, specFor(part, lines), "");
+    if (plan.issues?.length) {
+        onLog(
+            `staging issues ${JSON.stringify(plan.issues).slice(0, 300)} → re-planning simplified`,
+        );
+        ({ planPath, plan } = await planPart(
+            dir,
+            specFor(part, lines, { simplified: true }),
+            "-simple",
+        ));
+        if (plan.issues?.length)
+            throw new Error(
+                `staging guard: ${JSON.stringify(plan.issues).slice(0, 300)}`,
+            );
+    }
+    return { planPath, plan, lines };
+}
+
+/**
  * Render one painted part (scene.part) as a createScene()-shaped result.
  * Throws on any failure (TTS, staging guard, render) so the caller falls back.
  */
@@ -187,27 +212,11 @@ export async function renderPaintedScene(
         config.tempDir,
         `painted-scene-${index}-${Date.now()}`,
     );
-    fs.mkdirSync(dir, { recursive: true });
     onProgress(2, "voices");
-    const lines = await voiceLines(part, dir);
+    const { planPath, plan, lines } = await planPaintedPart(part, dir, {
+        onLog: (m) => onLog(`scene ${index}: ${m}`),
+    });
     onProgress(15, "planning shots");
-
-    // staging guard: the planner's framing issues must be empty
-    let { planPath, plan } = await planPart(dir, specFor(part, lines), "");
-    if (plan.issues?.length) {
-        onLog(
-            `scene ${index}: staging issues ${JSON.stringify(plan.issues).slice(0, 300)} → re-planning simplified`,
-        );
-        ({ planPath, plan } = await planPart(
-            dir,
-            specFor(part, lines, { simplified: true }),
-            "-simple",
-        ));
-        if (plan.issues?.length)
-            throw new Error(
-                `staging guard: ${JSON.stringify(plan.issues).slice(0, 300)}`,
-            );
-    }
     onLog(
         `scene ${index}: ${part.stage}, ${Object.keys(plan.actors).join(" + ")}, ${lines.length} lines, ${plan.shots.length} shots (${plan.shots.map((s) => s.kind).join(",")}), ${plan.duration.toFixed(1)}s`,
     );

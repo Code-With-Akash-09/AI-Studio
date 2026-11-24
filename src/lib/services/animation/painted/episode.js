@@ -78,7 +78,9 @@ export const PAINTED_EMOTIONS = [
 export const PAINTED_LIMITS = {
     parts: 3,
     castPerPart: 4,
-    minLines: 11,
+    minLines: 9,
+    maxTotalChars: 540,
+    trimTo: 500,
     maxLines: 18,
     minPartLines: 3,
     maxChars: 75,
@@ -280,19 +282,34 @@ export function sanitizePaintedEpisode(raw, script = "") {
             if (other) l.to = [other];
         }
         if (cast.length > L.castPerPart) {
-            // keep the speakers first, then the dog, drop the rest
-            const speakers = [
-                ...new Set(lines.flatMap((l) => [l.speaker, ...l.to])),
-            ];
-            const keep = [
-                ...speakers,
-                ...cast.filter((c) => !speakers.includes(c)),
-            ].slice(0, L.castPerPart);
-            if (speakers.length > L.castPerPart)
-                errors.push(
-                    `part ${pi + 1}: more than ${L.castPerPart} characters talk; use at most ${L.castPerPart} per part`,
+            // keep the most frequent speakers (first speaker always), then the dog; drop the rest's lines
+            const freq = {};
+            for (const l of lines) freq[l.speaker] = (freq[l.speaker] || 0) + 1;
+            const speakers = Object.keys(freq).sort(
+                (a, b) =>
+                    (b === lines[0]?.speaker) - (a === lines[0]?.speaker) ||
+                    freq[b] - freq[a],
+            );
+            const keepSpk = speakers.slice(0, L.castPerPart);
+            const dropped = speakers.slice(L.castPerPart);
+            if (dropped.length) {
+                warnings.push(
+                    `part ${pi + 1}: dropped lines of ${dropped.join(", ")} (max ${L.castPerPart} per part)`,
                 );
+                for (let i = lines.length - 1; i >= 0; i--)
+                    if (dropped.includes(lines[i].speaker)) lines.splice(i, 1);
+            }
+            const keep = [
+                ...keepSpk,
+                ...cast.filter((c) => !keepSpk.includes(c)),
+            ].slice(0, L.castPerPart);
             cast = keep;
+            for (const l of lines) {
+                l.to = l.to.filter((x) => cast.includes(x));
+                if (!l.to.length) l.to = [cast.find((c) => c !== l.speaker)];
+                if (l.reaction && !cast.includes(l.reaction.who))
+                    l.reaction = null;
+            }
         }
         if (cast.length < 2) {
             errors.push(`part ${pi + 1}: needs at least 2 characters`);
@@ -318,6 +335,34 @@ export function sanitizePaintedEpisode(raw, script = "") {
         }
         parts.push({ stage, cast, lines });
     }
+    // over the time budget: drop middle lines (never the hook, the reveal or the last two), longest first
+    const total = () =>
+        parts.reduce(
+            (a, p) => a + p.lines.reduce((b, l) => b + l.text.length, 0),
+            0,
+        );
+    if (total() > L.maxTotalChars) {
+        const n0 = parts.reduce((a, p) => a + p.lines.length, 0);
+        const cands = [];
+        parts.forEach((p, pi) =>
+            p.lines.forEach((l, li) => {
+                const first = pi === 0 && li < 2;
+                const last =
+                    pi === parts.length - 1 && li >= p.lines.length - 2;
+                if (!first && !last && l.emotion !== "reveal") cands.push(l);
+            }),
+        );
+        cands.sort((a, b) => b.text.length - a.text.length);
+        let n = n0;
+        for (const l of cands) {
+            if (total() <= L.trimTo || n <= L.minLines) break;
+            const p = parts.find((pp) => pp.lines.includes(l));
+            if (p.lines.length <= L.minPartLines) continue;
+            p.lines.splice(p.lines.indexOf(l), 1);
+            n--;
+        }
+        warnings.push(`trimmed ${n0 - n} line(s) to fit 45-60 s`);
+    }
     const all = parts.flatMap((p) => p.lines);
     if (all.length < L.minLines)
         errors.push(
@@ -333,7 +378,7 @@ export function sanitizePaintedEpisode(raw, script = "") {
     if (!parts.length) return { episode: null, errors, warnings };
     const chars = all.reduce((a, l) => a + l.text.length, 0);
     if (chars < 330) warnings.push(`short episode (~${chars} chars)`);
-    if (chars > 540)
+    if (chars > L.maxTotalChars + 60)
         errors.push(
             `too long (~${chars} characters of dialogue; Hindi TTS speaks only ~8 characters per second, so 45-60 seconds = about 380-500 characters of dialogue in total; use fewer / shorter lines)`,
         );

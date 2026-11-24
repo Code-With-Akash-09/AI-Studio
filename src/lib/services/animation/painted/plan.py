@@ -313,7 +313,23 @@ def plan(spec, cast_db, stages):
             c = [(hs[0] + hs[2]) / 2 + lead, hs[1] - 0.12 * h + h / 2]; push = 0.03; need = ()
         s.update(c=c, h=h, push=push, dof=DOF[s['kind']], focus_y=actors[subj[0]]['feet'][1])
         s2, iss = guard(s, ids, B, subj, need_full=need)
-        if s['kind'] == 'ots': s2['defocus'] = {s['over']: 3.0}
+        if iss and s['kind'] in ('cu', 'react', 'ots'):
+            # can't isolate the subject: fall back to a two-shot with the neighbour in the way, then to the wide
+            who = iss[0].rsplit(' ', 1)[-1].rstrip(')')
+            alts = []
+            if who in ids and who not in subj:
+                pair = [subj[0], who]
+                U = [min(B[a]['body'][0] for a in pair), min(B[a]['head'][1] for a in pair), max(B[a]['body'][2] for a in pair), max(B[a]['head'][3] for a in pair)]
+                h2 = max(0.95 * max(actors[a]['H'] for a in pair), (U[2] - U[0]) * 1.2 * E.SH / E.SW)
+                alts.append((dict(s, kind='two', subjects=pair, c=[(U[0] + U[2]) / 2, U[1] - 0.08 * h2 + h2 / 2], h=h2, push=0.025, dof=DOF['two']), pair, ()))
+            U = [min(B[a]['body'][0] for a in ids), min(B[a]['head'][1] for a in ids), max(B[a]['body'][2] for a in ids), max(actors[a]['feet'][1] for a in ids)]
+            h3 = max((U[3] - U[1]) * 1.35, (U[2] - U[0]) * 1.25 * E.SH / E.SW)
+            alts.append((dict(s, kind='wide', subjects=list(ids), c=[(U[0] + U[2]) / 2, (U[1] + U[3]) / 2 + 0.02 * h3], h=h3, push=0.02, dof=DOF['wide']), list(ids), ids))
+            for alt, sj, nf in alts:
+                a2, i2 = guard(alt, ids, B, sj, need_full=nf)
+                if not i2:
+                    a2['name'] = s['name'] + f'>{alt["kind"]}'; s2, iss = a2, []; break
+        if s2['kind'] == 'ots': s2['defocus'] = {s['over']: 3.0}
         issues += iss; final.append(s2)
     # continuity checks (180 rule: screen sides never swap; every speaker seen at least once)
     for a in ids:
