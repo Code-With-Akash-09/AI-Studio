@@ -67,3 +67,6 @@ teeth, NOT sticking out. Thin white gutters between cells."
   heads (7-16 inliers, misplaced patches) -> regenerated ("same crop, same zoom, glasses+moustache large, nose to LEFT edge")
   and rebuilt (40+ inliers). Prunes: laugh MBP=closed,U=O,I=E (white strips under moustache); L=I on idle/explain/surprised/think.
   check: _check/hariprasad-dadaji-kit.jpg. Flaws: mouth changes subtle under the big moustache on sit/offer.
+- 22:55 Chiku 7 poses built (magnifying glass in every body; eyefix on surprised/think). idle/explain/offer/sit grids v1 were
+  frontal zoomed-out heads (6-10 inliers) -> regenerated and rebuilt (33-50 inliers). surprised blink smeared -> dropped.
+  Prunes: L=I on idle/explain/think. check: _check/chiku-kit.jpg. Rule learned: always run p2_kitcomp; <20 closed-cell inliers = redo grid.
