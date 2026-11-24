@@ -113,3 +113,10 @@ Code lives in the worktree at src/lib/services/animation/painted/ (python next t
 ### M4 attempts (Nov 24 23:26-23:45 IST)
 - Run 1 (killed): writer limits too loose (Hindi Edge TTS ~8-9 chars/s incl. pauses) → ~80-90 s episode. Fixed: 380-500 chars budget, voice rates +6..+8%.
 - Run 2: AI failed both rounds (>4 talkers in a part, too long) → template; template part failed the guard (react-bittu, Kamla half-head) → stock fallback. Fixed: guard fallback CU/react/OTS → two-shot with the neighbour → wide; writer auto-drops extra talkers and trims middle lines to the budget (warnings, not errors). NOTE: the pipeline wipes the worktree temp/ after a job → M4 harness moved to /workspace/anim-demo/m4/ (m4-run.mjs, m4-script.txt, plan-template.mjs).
+
+### M4 run 3 (job job-1795543601491-16274bdc, started 23:36 IST)
+- AI episode OK first round: "भानगढ़ का अनसुलझा राज़!", 3 parts (courtyard / study / fort-dusk), 13 lines, 482 chars, 6 speakers + Bholu, props diary + magnifier.
+- The harness fetch died at 5 min (undici UND_ERR_HEADERS_TIMEOUT); the server job kept going (scene 1 15.3 s, scene 2 15.7 s, scene 3 32.1 s rendering at 23:51). Harness fixed: m4-run.mjs now uses plain http.request (no client timeouts); m4/job.mjs reads the job state.
+- DONE 23:52 IST: job completed, video /workspace/ai-studio-anim/public/videos/video-1795544542278.mp4 (worktree; DB ai-studio-anim video 6b05d5ed330398bb816a8912), 63.1 s, 1920x1080 25fps SAR1, AAC 44.1k stereo, voices only (mean -22.6 dB).
+  Copied to /workspace/anim-demo/phase2-episode-sample.mp4; contact sheets stills/phase2/episode-contact.jpg (2.6 s step) and episode-contact-1s.jpg.
+- Self-check: 3 sets, 6 speakers + Bholu react CU, diary + magnifier inserts, consistent screen direction, no half heads. Flaws: 63 s (slightly over 60); neighbour hands/arm peek at CU edges (Anaya's arm in Chiku CU ~44-46 s); a short neighbour's head at the bottom of a few CUs (Chiku under Kabir ~6-9 s); one Edge TTS hiccup (retries OK).
