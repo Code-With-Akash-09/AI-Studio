@@ -50,3 +50,8 @@ teeth, NOT sticking out. Thin white gutters between cells."
   (+ chiku-idle/explain/think after build). Rule from now: check every sheet's L column, prune L=I where the tongue shows.
 - 22:05 Meera Maa DONE: eyefix on 6 poses (all but laugh); kits poses/p2/meera-maa-*; check _check/meera-maa-mouths.jpg (clean, no smears).
   Prunes: L=I on idle/explain/think/offer/sit (tongue out). Flaws: bindi missing on some poses (body gens), think mouths small.
+- 22:30 Anaya Didi 7 poses built (eyefix on think). offer/sit grids v1 came out zoomed-out -> SIFT locked on the wrong
+  features (12-17 inliers), mouth patches landed at eye level; regenerated both grids ("same crop, same zoom, NOT zoomed out")
+  and rebuilt -> correct. sit blink cell misregistered (ghost eye) -> blink dropped for sit. Prunes: L=I on explain/surprised.
+  New check tool p2_kitcomp.py (composites each patch WITH its mask on the body - the true render, unlike p2_mouthgrid's crops).
+  check: _check/anaya-kit.jpg. Flaws: explain blink slightly warm; think mouths small near the hand.
