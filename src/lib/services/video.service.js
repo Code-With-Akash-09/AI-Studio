@@ -60,6 +60,36 @@ async function createScene(
 ) {
     // Opt-in animated character-dialogue scene (ANIMATION_ENABLED + per job).
     // Any problem falls back to the normal visual path below.
+    // painted-puppet episode part (animationMode "painted"): planner +
+    // painted renderer; any failure falls back to the normal visual below
+    if (scene.visualType === "character" && scene.painted && scene.part) {
+        try {
+            const painted = await import("./animation/painted/render.js");
+            console.log(
+                `\n[Animation] Rendering painted puppet scene ${index} (${scene.part.stage}: ${scene.part.cast.join(" + ")}, ${scene.part.lines.length} lines, voices only)...`,
+            );
+            const result = await painted.renderPaintedScene(scene, index, {
+                onProgress: (p, msg) =>
+                    onProgress(
+                        Math.round(
+                            progressStart +
+                                ((progressEnd - progressStart) * p) / 100,
+                        ),
+                        `Painting cartoon scene ${index}${msg ? ` (${msg})` : ""}...`,
+                        { currentScene: index },
+                    ),
+            });
+            onProgress(progressEnd, `Scene ${index} rendered.`, {
+                currentScene: index,
+            });
+            return result;
+        } catch (err) {
+            console.warn(
+                `[Animation] Painted scene ${index} failed (${err.message}). Falling back to the normal visual.`,
+            );
+            scene = { ...scene, visualType: "video" };
+        }
+    }
     if (scene.visualType === "character") {
         // full-cartoon episode parts carry an already-validated dialogue
         if ((characterAnimation || scene.episode) && scene.dialogue) {
@@ -477,7 +507,7 @@ export async function generateVideo(script, options = {}) {
         characterAnimation: characterAnimationOption,
     });
 
-    const normDimension = ["horizontal", "landscape", "16:9"].includes(
+    let normDimension = ["horizontal", "landscape", "16:9"].includes(
         String(dimension || "")
             .toLowerCase()
             .trim(),
@@ -515,6 +545,9 @@ export async function generateVideo(script, options = {}) {
     }
     const characterAnimation = animationMode === "mix";
     const fullCartoon = animationMode === "full";
+    // painted puppet episodes are 16:9 only
+    const paintedMode = animationMode === "painted";
+    if (paintedMode) normDimension = "horizontal";
 
     if (!existingJob) {
         await createJob({
@@ -557,6 +590,60 @@ export async function generateVideo(script, options = {}) {
         let selectedVoice = existingJob?.selectedVoice;
         let episodeMeta = existingJob?.episodeMeta || null;
         if (fullCartoon) console.log("       Mode: FULL CARTOON EPISODE");
+        if (paintedMode) console.log("       Mode: PAINTED PUPPET EPISODE");
+
+        // Step 1 (painted puppets): the AI writes the episode for the painted cast
+        if ((!scenes || scenes.length === 0) && paintedMode) {
+            console.log("STEP 1 — WRITING PAINTED PUPPET EPISODE");
+            onProgress(10, "Writing the painted cartoon episode...", { jobId });
+            const pe = await import("./animation/painted/episode.js");
+            const written = await pe.writePaintedEpisode(script, {
+                provider,
+                model,
+                geminiApiKeys,
+            });
+            scenes = pe.paintedScenes(written.episode);
+            detectedLanguage = "hi";
+            detectedMood = written.episode.mood;
+            selectedVoice = resolveVoice({
+                voice,
+                language: detectedLanguage,
+                gender,
+            });
+            const speakers = [
+                ...new Set(
+                    written.episode.parts.flatMap((p) =>
+                        p.lines.map((l) => l.speaker),
+                    ),
+                ),
+            ];
+            episodeMeta = {
+                title: written.episode.title,
+                source: written.source,
+                provider: written.provider,
+                painted: true,
+                cast: speakers,
+                stages: written.episode.parts.map((p) => p.stage),
+                guests: [],
+                parts: scenes.length,
+                lines: scenes.reduce((a, sc) => a + sc.part.lines.length, 0),
+                errors: written.errors || [],
+            };
+            await saveScenePlan(jobId, {
+                scenes,
+                detectedLanguage,
+                selectedVoice,
+                storylineMood: detectedMood,
+                episodeMeta,
+            });
+            onProgress(
+                18,
+                written.source === "template"
+                    ? "AI episode unavailable — using the template painted episode."
+                    : `Painted episode ready: ${episodeMeta.lines} lines, ${speakers.length} speakers.`,
+                { jobId },
+            );
+        }
 
         // Step 1 (full cartoon): the AI writes the whole episode
         if ((!scenes || scenes.length === 0) && fullCartoon) {
@@ -740,7 +827,11 @@ export async function generateVideo(script, options = {}) {
 
         // cartoon episodes are voices-only unless a music mood is picked
         const bgm = resolveBgmTrack({
-            requestedMood: fullCartoon && bgmMood === "auto" ? "none" : bgmMood,
+            requestedMood:
+                // painted episodes: voices only (no BGM / SFX)
+                paintedMode || (fullCartoon && bgmMood === "auto")
+                    ? "none"
+                    : bgmMood,
             detectedMood,
             volume: bgmVolume,
         });
