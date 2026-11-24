@@ -55,3 +55,8 @@ teeth, NOT sticking out. Thin white gutters between cells."
   and rebuilt -> correct. sit blink cell misregistered (ghost eye) -> blink dropped for sit. Prunes: L=I on explain/surprised.
   New check tool p2_kitcomp.py (composites each patch WITH its mask on the body - the true render, unlike p2_mouthgrid's crops).
   check: _check/anaya-kit.jpg. Flaws: explain blink slightly warm; think mouths small near the hand.
+- 22:32 Kamla Dadi 7 poses built (eyefix on surprised; stick in every body). Prunes: L=I on idle/think (tongue out).
+  check: _check/kamla-dadi-kit.jpg, _check/kamla-dadi-mouths.jpg. Flaws: bindi inconsistent across poses; think mouths small.
+  Earlier kits re-checked with p2_kitcomp (kabir/bittu/meera/ramesh): placement OK.
+  Chiku kit check FAILED on idle/explain/offer (grids drew a frontal, zoomed-out head -> 6-10 SIFT inliers, patches misplaced)
+  -> those grids are being regenerated.
