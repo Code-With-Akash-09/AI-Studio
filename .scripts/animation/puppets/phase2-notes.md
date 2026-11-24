@@ -70,3 +70,7 @@ teeth, NOT sticking out. Thin white gutters between cells."
 - 22:55 Chiku 7 poses built (magnifying glass in every body; eyefix on surprised/think). idle/explain/offer/sit grids v1 were
   frontal zoomed-out heads (6-10 inliers) -> regenerated and rebuilt (33-50 inliers). surprised blink smeared -> dropped.
   Prunes: L=I on idle/explain/think. check: _check/chiku-kit.jpg. Rule learned: always run p2_kitcomp; <20 closed-cell inliers = redo grid.
+- 23:00 Milestone 1 done: all 9 casts x 7 poses (L + mirrored R). Cast pose sheet: stills/phase2/cast-poses.jpg
+  (p2_castsheet.py; standing poses share a height, seated = 74%). Sample: puppets/p2sample/p2-sample.mp4 (13.1 s, 1920x1080,
+  Kabir + Kamla Dadi + Bittu, talk3 lines k1/k2/d1, 6 shots, fine visemes; contact stills/phase2/sample-contact.jpg).
+  Sample flaws: bittu-cu crops Kabir's head at the frame top; only Kabir and Dadi speak (Bittu reacts).
