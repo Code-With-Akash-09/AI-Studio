@@ -56,8 +56,37 @@ function run(cmd, args, { stdout = false, timeoutMs = 60000 } = {}) {
 }
 
 /**
+ * Edge TTS retry schedule (seconds to wait before each attempt). Edge's
+ * service hiccups for a few seconds to a minute at a time, so we wait it out
+ * before ever using the robotic offline voice. Override for tests with
+ * ANIMATION_TTS_BACKOFF="0,3,8".
+ */
+function edgeBackoff() {
+    const raw = process.env.ANIMATION_TTS_BACKOFF;
+    if (raw) {
+        const list = raw
+            .split(",")
+            .map((v) => Number(v))
+            .filter((v) => Number.isFinite(v) && v >= 0);
+        if (list.length) return list;
+    }
+    return [0, 3, 8, 15, 30];
+}
+/** After a full backoff fails, later lines try Edge once before falling back. */
+const EDGE_DOWN_MS = 5 * 60 * 1000;
+let edgeDownUntil = 0;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** True when synthesizeLine() returned the offline pyttsx3 voice. */
+export function isOfflineVoice(file) {
+    return typeof file === "string" && file.endsWith(".pyttsx3.wav");
+}
+
+/**
  * Synthesize a line with Edge TTS. Cached on disk by (text, voice, rate, pitch).
- * @returns {Promise<string|null>} mp3 path, or null when TTS is unavailable.
+ * Retries with a long backoff; then falls back to pyttsx3 (offline, robotic,
+ * not cached so the next render tries Edge again); then null (placeholder).
+ * @returns {Promise<string|null>} audio path, or null when no TTS works.
  */
 export async function synthesizeLine(text, voice, cacheDir) {
     fs.mkdirSync(cacheDir, { recursive: true });
@@ -73,8 +102,15 @@ export async function synthesizeLine(text, voice, cacheDir) {
         fs.existsSync(wordsOut)
     )
         return out;
+    const schedule = Date.now() < edgeDownUntil ? [0] : edgeBackoff();
     let lastError = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < schedule.length; attempt++) {
+        if (schedule[attempt] > 0) {
+            console.warn(
+                `[Animation] Edge TTS retry ${attempt + 1}/${schedule.length} in ${schedule[attempt]}s (${String(lastError?.message || "").slice(0, 120)})`,
+            );
+            await sleep(schedule[attempt] * 1000);
+        }
         try {
             await run(resolvePython(), [
                 TTS_SCRIPT,
@@ -85,13 +121,29 @@ export async function synthesizeLine(text, voice, cacheDir) {
                 voice.pitch || "+0Hz",
                 wordsOut,
             ]);
-            if (fs.existsSync(out)) return out;
+            if (fs.existsSync(out) && fs.statSync(out).size > 1000) {
+                edgeDownUntil = 0;
+                return out;
+            }
         } catch (error) {
             lastError = error;
         }
     }
+    edgeDownUntil = Date.now() + EDGE_DOWN_MS;
+    const offline = path.join(cacheDir, `line-${key}.pyttsx3.wav`);
+    try {
+        await run(resolvePython(), [TTS_SCRIPT, "--pyttsx3", text, offline]);
+        if (fs.existsSync(offline) && fs.statSync(offline).size > 1000) {
+            console.warn(
+                `[Animation] Edge TTS unavailable after ${schedule.length} attempt(s); using the offline pyttsx3 voice for this line.`,
+            );
+            return offline;
+        }
+    } catch (error) {
+        lastError = error;
+    }
     console.warn(
-        `[Animation] TTS unavailable, using placeholder audio: ${lastError?.message || "no output"}`,
+        `[Animation] TTS unavailable (Edge + pyttsx3), using placeholder audio: ${String(lastError?.message || "no output").slice(0, 200)}`,
     );
     return null;
 }

@@ -31,6 +31,7 @@ import {
     placeholderEnvelope,
     synthBoing,
     readWordTimings,
+    isOfflineVoice,
     synthesizeLine,
     trimLead,
     trimSilence,
@@ -69,6 +70,7 @@ async function prepareLineAudio(dialogue, { tts, cacheDir, fps, sr, onLog }) {
                     t: w.t - lead,
                 })),
                 placeholder: false,
+                offline: isOfflineVoice(mp3),
             });
         } else {
             const duration = estimateSpeechDuration(line.text);
@@ -238,7 +240,8 @@ export async function buildCharacterTimeline(input, opts = {}) {
         dialogue.dimension =
             opts.dimension === "vertical" ? "vertical" : "horizontal";
     const { width, height } = ANIMATION_DIMENSIONS[dialogue.dimension];
-    const fps = dialogue.style !== "flat" ? ANIME_FPS : ANIMATION_FPS;
+    const fps =
+        opts.fps || (dialogue.style !== "flat" ? ANIME_FPS : ANIMATION_FPS);
     const lineAudio = await prepareLineAudio(dialogue, {
         tts: opts.tts !== false,
         cacheDir:
@@ -356,6 +359,7 @@ export async function renderCharacterAnimation(input, opts = {}) {
         captions,
         usedTts: placeholderLines < lineAudio.length,
         placeholderLines,
+        offlineLines: lineAudio.filter((l) => l.offline).length,
         staging: { issues: stagingIssues, counts: staging.counts },
         audio: {
             bgm: soundtrack.used.bgm,
@@ -418,6 +422,7 @@ export async function renderDialogueScene(
         emotion: "dialogue",
         usedTts: result.usedTts,
         placeholderLines: result.placeholderLines,
+        offlineLines: result.offlineLines,
         staging: result.staging,
     };
 }

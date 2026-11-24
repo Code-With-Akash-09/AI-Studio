@@ -1,7 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -30,6 +29,24 @@ import {
     Volume2,
 } from "lucide-react";
 
+const VIDEO_MODES = [
+    {
+        value: "off",
+        label: "Stock visuals",
+        help: "Normal video: narration over matched stock clips and images.",
+    },
+    {
+        value: "mix",
+        label: "Mix characters",
+        help: "Stock video plus 1-2 animated Raazu/Golu scenes where they fit.",
+    },
+    {
+        value: "full",
+        label: "Full cartoon",
+        help: "Whole video is a cartoon episode: the AI writes a Hindi dialogue with Raazu, Golu and guest characters made for your script. Voices only unless you pick a music mood (Auto = no music).",
+    },
+];
+
 const DIMENSION_OPTIONS = [
     { value: "vertical", label: "9:16 Reels", Icon: Smartphone },
     { value: "horizontal", label: "16:9 Landscape", Icon: Monitor },
@@ -52,8 +69,8 @@ export function StudioSettings({
     onBgmMoodChange,
     bgmVolume = 0.1,
     onBgmVolumeChange,
-    characterAnimation = false,
-    onCharacterAnimationChange,
+    animationMode = "off",
+    onAnimationModeChange,
     onGenerate,
     loading,
     scriptEmpty,
@@ -339,27 +356,47 @@ export function StudioSettings({
                             </div>
                         )}
                     </div>
-                    {onCharacterAnimationChange && (
-                        <div className="flex items-start gap-2">
-                            <Checkbox
-                                id="character-animation-checkbox"
-                                checked={characterAnimation}
-                                onCheckedChange={(v) =>
-                                    onCharacterAnimationChange(Boolean(v))
-                                }
-                            />
-                            <Label
-                                htmlFor="character-animation-checkbox"
-                                className="text-xs text-slate-700 leading-tight"
-                            >
-                                <span className="font-semibold">
-                                    Character dialogue scenes (beta)
-                                </span>
-                                <span className="block text-[10px] text-slate-400">
-                                    Animated Raazu/Golu scene where it fits.
-                                    Needs ANIMATION_ENABLED on the server.
-                                </span>
+                    {onAnimationModeChange && (
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                                <Clapperboard className="size-3 text-slate-400" />
+                                <span>Video Mode</span>
                             </Label>
+                            <div
+                                className="grid grid-cols-3 gap-2"
+                                role="radiogroup"
+                                aria-label="Video mode"
+                            >
+                                {VIDEO_MODES.map((m) => (
+                                    <Button
+                                        key={m.value}
+                                        id={`video-mode-${m.value}`}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={animationMode === m.value}
+                                        onClick={() =>
+                                            onAnimationModeChange(m.value)
+                                        }
+                                        variant="outline"
+                                        className={`h-8 px-2 rounded-lg border text-[11px] font-semibold transition-all ${
+                                            animationMode === m.value
+                                                ? "border-primary bg-primary/10 text-primary"
+                                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                        }`}
+                                    >
+                                        {m.label}
+                                    </Button>
+                                ))}
+                            </div>
+                            <p className="text-[10px] leading-snug text-slate-400">
+                                {
+                                    (
+                                        VIDEO_MODES.find(
+                                            (m) => m.value === animationMode,
+                                        ) || VIDEO_MODES[0]
+                                    ).help
+                                }
+                            </p>
                         </div>
                     )}
                     <div className="space-y-1.5">

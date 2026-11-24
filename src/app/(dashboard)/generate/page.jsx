@@ -19,6 +19,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { generateVideoAction } from "../../../actions/generate.js";
 import { useSocket } from "../../../hooks/useSocket.js";
 
+const ANIMATION_MODE_KEY = "studio.animationMode";
+
 export default function GeneratePage() {
     const { socketId, lastProgress, connected } = useSocket();
 
@@ -31,7 +33,9 @@ export default function GeneratePage() {
     const [geminiKey, setGeminiKey] = useState("");
     const [bgmMood, setBgmMood] = useState("auto");
     const [bgmVolume, setBgmVolume] = useState(0.1);
-    const [characterAnimation, setCharacterAnimation] = useState(false);
+    // video mode (needs ANIMATION_ENABLED on the server): off | mix | full
+    const [animationMode, setAnimationModeState] = useState("off");
+    const [animationAvailable, setAnimationAvailable] = useState(false);
 
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -42,6 +46,42 @@ export default function GeneratePage() {
     const [showScript, setShowScript] = useState(false);
 
     const videoRef = useRef(null);
+
+    // Is character animation enabled on the server? (GET /api/animation is
+    // 404 when ANIMATION_ENABLED is off → the option stays hidden.)
+    useEffect(() => {
+        let alive = true;
+        const token =
+            typeof window !== "undefined"
+                ? localStorage.getItem("accessToken")
+                : null;
+        fetch("/api/animation", {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+            .then((r) => r.json().catch(() => ({})))
+            .then((d) => {
+                if (!alive) return;
+                const ok = Boolean(d?.success);
+                setAnimationAvailable(ok);
+                const saved = localStorage.getItem(ANIMATION_MODE_KEY);
+                setAnimationModeState(
+                    ok && ["off", "mix", "full"].includes(saved)
+                        ? saved
+                        : "off",
+                );
+            })
+            .catch(() => alive && setAnimationAvailable(false));
+        return () => {
+            alive = false;
+        };
+    }, []);
+
+    const setAnimationMode = useCallback((mode) => {
+        setAnimationModeState(mode);
+        try {
+            localStorage.setItem(ANIMATION_MODE_KEY, mode);
+        } catch {}
+    }, []);
 
     useEffect(() => {
         if (!lastProgress) return;
@@ -79,7 +119,7 @@ export default function GeneratePage() {
                     bgmMood,
                     bgmVolume,
                     ...(language && { language }),
-                    ...(characterAnimation && { characterAnimation: true }),
+                    ...(animationAvailable && { animationMode }),
                     ...(geminiKey.trim() && { geminiApiKey: geminiKey.trim() }),
                     ...(resumeJobId && { jobId: resumeJobId }),
                 };
@@ -116,7 +156,8 @@ export default function GeneratePage() {
             geminiKey,
             bgmMood,
             bgmVolume,
-            characterAnimation,
+            animationMode,
+            animationAvailable,
             resumeJobId,
         ],
     );
@@ -289,8 +330,10 @@ export default function GeneratePage() {
                         onBgmMoodChange={setBgmMood}
                         bgmVolume={bgmVolume}
                         onBgmVolumeChange={setBgmVolume}
-                        characterAnimation={characterAnimation}
-                        onCharacterAnimationChange={setCharacterAnimation}
+                        animationMode={animationMode}
+                        onAnimationModeChange={
+                            animationAvailable ? setAnimationMode : undefined
+                        }
                         onGenerate={handleGenerate}
                         loading={loading}
                         scriptEmpty={!script.trim()}

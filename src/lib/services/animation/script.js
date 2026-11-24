@@ -44,6 +44,7 @@ import {
 } from "../../../constants/animation.js";
 import { BACKGROUND_IDS } from "./backgrounds.js";
 import { CHARACTERS } from "./characters.js";
+import { registerGuests } from "./guests.js";
 
 function normExpression(value, fallback = "neutral") {
     const v = String(value || "")
@@ -96,6 +97,10 @@ export function normalizeDialogue(input) {
     if (!input || typeof input !== "object") {
         throw new Error("Dialogue must be an object.");
     }
+    // script-specific guest characters (episode mode) are registered first
+    const guests = Array.isArray(input.guests)
+        ? registerGuests(input.guests)
+        : { ids: [], characters: [] };
     const cast = Array.isArray(input.cast) ? input.cast.slice(0, 2) : [];
     if (cast.length !== 2) {
         throw new Error("Dialogue cast must list exactly 2 character ids.");
@@ -206,6 +211,7 @@ export function normalizeDialogue(input) {
                       ),
                   )
                 : {},
+        guests: guests.characters.map((c) => c.guestSpec),
         watermark:
             input.watermark === undefined
                 ? "Raaz Explain Tv"

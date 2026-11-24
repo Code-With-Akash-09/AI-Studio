@@ -162,6 +162,79 @@ async function stagingReport() {
     const nFuzz = Number(opt("fuzz", 60));
     for (let i = 0; i < nFuzz; i++)
         cases.push({ name: `fuzz-${i}`, seed: fuzzScene(i), tts: false });
+    // full-cartoon episodes: the honey template + any --episode=a.json,b.json
+    // (episode JSON from writeEpisode, guests included)
+    const { partDialogues, templateEpisode, GUEST_PRESETS } = await import(
+        "../../src/lib/services/animation/episode.js"
+    );
+    const { guestId, normalizeGuestSpec } = await import(
+        "../../src/lib/services/animation/guests.js"
+    );
+    const episodes = [
+        [
+            "episode-template-honey",
+            templateEpisode(
+                "Did you know that honey never spoils? Archaeologists exploring ancient Egyptian pyramids have discovered sealed pots of honey over 3,000 years old that are still fully preserved and edible.",
+            ),
+        ],
+        ...String(opt("episode", ""))
+            .split(",")
+            .filter(Boolean)
+            .map((f) => [
+                `episode-${path.basename(f, ".json")}`,
+                JSON.parse(fs.readFileSync(f, "utf8")),
+            ]),
+    ];
+    for (const [name, ep] of episodes)
+        for (const [k] of ep.parts.entries())
+            cases.push({
+                name: `${name}-part${k + 1}`,
+                dialogueFor: (dim) => partDialogues(ep, { dimension: dim })[k],
+                tts: false,
+            });
+    // guest fuzz: a random preset guest replaces the second speaker
+    const presets = Object.keys(GUEST_PRESETS);
+    const nGuest = Number(opt("guest-fuzz", Math.ceil(nFuzz / 2)));
+    for (let i = 0; i < nGuest; i++) {
+        const seed = fuzzScene(1000 + i);
+        cases.push({
+            name: `guest-fuzz-${i}`,
+            tts: false,
+            dialogueFor: (dim) => {
+                const d = sanitizeCharacterDialogue(seed, { dimension: dim });
+                if (!d) return null;
+                const raw = {
+                    name: `G${i}`,
+                    preset: presets[i % presets.length],
+                    bodyType: ["slim", "chubby", "tall", "elder"][i % 4],
+                };
+                const { spec } = normalizeGuestSpec(raw, 0);
+                const gid = guestId(spec);
+                const [, b] = d.cast;
+                const swap = (id) => (id === b ? gid : id);
+                return {
+                    ...d,
+                    guests: [spec],
+                    cast: d.cast.map(swap),
+                    positions: Object.fromEntries(
+                        Object.entries(d.positions || {}).map(([k2, v]) => [
+                            swap(k2),
+                            v,
+                        ]),
+                    ),
+                    lines: d.lines.map((l) => ({
+                        ...l,
+                        speaker: swap(l.speaker),
+                        actions: (l.actions || []).map((a) => ({
+                            ...a,
+                            who: swap(a.who),
+                            to: typeof a.to === "string" ? swap(a.to) : a.to,
+                        })),
+                    })),
+                };
+            },
+        });
+    }
     const only = opt("only", "");
     const run = only
         ? cases.filter((c) => only.split(",").includes(c.name))
@@ -176,9 +249,11 @@ async function stagingReport() {
     let rendered = 0;
     for (const c of run) {
         for (const dim of ["horizontal", "vertical"]) {
-            const raw = c.seed
-                ? sanitizeCharacterDialogue(c.seed, { dimension: dim })
-                : c.dialogue;
+            const raw = c.dialogueFor
+                ? c.dialogueFor(dim)
+                : c.seed
+                  ? sanitizeCharacterDialogue(c.seed, { dimension: dim })
+                  : c.dialogue;
             if (!raw) {
                 report.push({ case: c.name, dim, rejected: true });
                 continue;

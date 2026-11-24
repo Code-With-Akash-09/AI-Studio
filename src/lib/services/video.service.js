@@ -19,7 +19,7 @@ import {
     ensureDirectories,
 } from "../utils/files.js";
 import { analyzeScript } from "./ai/analyzeScript.js";
-import { characterAnimationFor } from "./animation/flags.js";
+import { animationModeFor } from "./animation/flags.js";
 import { selectBestAsset } from "./ai/selectAsset.js";
 import { synthesizeSceneVisual } from "./ai/synthesizeSceneVisual.js";
 import { createCaptions } from "./captions/createCaptions.js";
@@ -61,37 +61,55 @@ async function createScene(
     // Opt-in animated character-dialogue scene (ANIMATION_ENABLED + per job).
     // Any problem falls back to the normal visual path below.
     if (scene.visualType === "character") {
-        if (characterAnimation && scene.dialogue) {
-            try {
-                const anim = await import("./animation/pipeline.js");
-                const dialogue = anim.sanitizeCharacterDialogue(scene, {
-                    dimension,
-                });
-                if (!dialogue) throw new Error("dialogue failed validation");
-                console.log(
-                    `\n[Animation] Rendering character dialogue scene ${index} (${dialogue.cast.join(" + ")}, ${dialogue.lines.length} lines, classic, voices only)...`,
-                );
-                const result = await anim.renderCharacterScene(scene, index, {
-                    dialogue,
-                    dimension,
-                    onProgress: (p) =>
-                        onProgress(
-                            Math.round(
-                                progressStart +
-                                    ((progressEnd - progressStart) * p) / 100,
-                            ),
-                            `Animating character scene ${index}...`,
-                            { currentScene: index },
-                        ),
-                });
-                onProgress(progressEnd, `Scene ${index} rendered.`, {
-                    currentScene: index,
-                });
-                return result;
-            } catch (err) {
+        // full-cartoon episode parts carry an already-validated dialogue
+        if ((characterAnimation || scene.episode) && scene.dialogue) {
+            const anim = await import("./animation/pipeline.js");
+            const first = scene.episode
+                ? scene.dialogue
+                : anim.sanitizeCharacterDialogue(scene, { dimension });
+            // episode parts get a second try without movement / Sheru
+            const tries = first
+                ? scene.episode
+                    ? [first, anim.simplifyDialogue(first)]
+                    : [first]
+                : [];
+            if (!tries.length)
                 console.warn(
-                    `[Animation] Character scene ${index} failed (${err.message}). Falling back to the normal visual.`,
+                    `[Animation] Character scene ${index} failed validation. Falling back to the normal visual.`,
                 );
+            for (const [k, dialogue] of tries.entries()) {
+                try {
+                    console.log(
+                        `\n[Animation] Rendering character dialogue scene ${index}${k ? " (simplified retry)" : ""} (${dialogue.cast.join(" + ")}, ${dialogue.lines.length} lines, classic, voices only)...`,
+                    );
+                    const result = await anim.renderCharacterScene(
+                        scene,
+                        index,
+                        {
+                            dialogue,
+                            dimension,
+                            onProgress: (p) =>
+                                onProgress(
+                                    Math.round(
+                                        progressStart +
+                                            ((progressEnd - progressStart) *
+                                                p) /
+                                                100,
+                                    ),
+                                    `Animating cartoon scene ${index}...`,
+                                    { currentScene: index },
+                                ),
+                        },
+                    );
+                    onProgress(progressEnd, `Scene ${index} rendered.`, {
+                        currentScene: index,
+                    });
+                    return result;
+                } catch (err) {
+                    console.warn(
+                        `[Animation] Character scene ${index}${k ? " (simplified)" : ""} failed (${err.message}).${k + 1 < tries.length ? " Retrying simplified." : " Falling back to the normal visual."}`,
+                    );
+                }
             }
         }
         scene = { ...scene, visualType: "video" };
@@ -449,10 +467,15 @@ export async function generateVideo(script, options = {}) {
         bgmMood = "auto",
         bgmVolume = DEFAULT_BGM_VOLUME,
         characterAnimation: characterAnimationOption,
+        animationMode: animationModeOption,
     } = options;
-    // opt-in animated character scenes: needs ANIMATION_ENABLED=true, then the
-    // per-job option (or ANIMATION_PIPELINE_DEFAULT). Off → unchanged pipeline.
-    let characterAnimation = characterAnimationFor(characterAnimationOption);
+    // opt-in animation (needs ANIMATION_ENABLED=true): "off" | "mix" (1-2
+    // character scenes) | "full" (whole cartoon episode). Jobs that don't say
+    // follow ANIMATION_PIPELINE_DEFAULT. Off → unchanged pipeline.
+    let animationMode = animationModeFor({
+        animationMode: animationModeOption,
+        characterAnimation: characterAnimationOption,
+    });
 
     const normDimension = ["horizontal", "landscape", "16:9"].includes(
         String(dimension || "")
@@ -483,10 +506,15 @@ export async function generateVideo(script, options = {}) {
     if (
         existingJob &&
         characterAnimationOption === undefined &&
-        existingJob.options?.characterAnimation
+        animationModeOption === undefined
     ) {
-        characterAnimation = characterAnimationFor(true);
+        const saved =
+            existingJob.options?.animationMode ||
+            (existingJob.options?.characterAnimation ? "mix" : undefined);
+        if (saved) animationMode = animationModeFor({ animationMode: saved });
     }
+    const characterAnimation = animationMode === "mix";
+    const fullCartoon = animationMode === "full";
 
     if (!existingJob) {
         await createJob({
@@ -506,6 +534,7 @@ export async function generateVideo(script, options = {}) {
                 bgmMood,
                 bgmVolume,
                 ...(characterAnimation ? { characterAnimation: true } : {}),
+                ...(animationMode !== "off" ? { animationMode } : {}),
             },
         });
     }
@@ -526,6 +555,60 @@ export async function generateVideo(script, options = {}) {
             existingJob?.detectedLanguage || language || "en";
         let detectedMood = existingJob?.storylineMood || "inspirational";
         let selectedVoice = existingJob?.selectedVoice;
+        let episodeMeta = existingJob?.episodeMeta || null;
+        if (fullCartoon) console.log("       Mode: FULL CARTOON EPISODE");
+
+        // Step 1 (full cartoon): the AI writes the whole episode
+        if ((!scenes || scenes.length === 0) && fullCartoon) {
+            console.log("STEP 1 — WRITING CARTOON EPISODE");
+            onProgress(10, "Writing the cartoon episode...", { jobId });
+            const ep = await import("./animation/episode.js");
+            const written = await ep.writeEpisode(script, {
+                provider,
+                model,
+                geminiApiKeys,
+                dimension: normDimension,
+            });
+            scenes = ep.episodeScenes(written.episode, {
+                dimension: normDimension,
+            });
+            detectedLanguage = "hi";
+            detectedMood = written.episode.mood;
+            selectedVoice = resolveVoice({
+                voice,
+                language: detectedLanguage,
+                gender,
+            });
+            episodeMeta = {
+                title: written.episode.title,
+                source: written.source,
+                provider: written.provider,
+                guests: written.episode.guests.map((g) => ({
+                    name: g.name,
+                    role: g.role,
+                })),
+                parts: scenes.length,
+                lines: scenes.reduce(
+                    (a, sc) => a + sc.dialogue.lines.length,
+                    0,
+                ),
+                errors: written.errors || [],
+            };
+            await saveScenePlan(jobId, {
+                scenes,
+                detectedLanguage,
+                selectedVoice,
+                storylineMood: detectedMood,
+                episodeMeta,
+            });
+            onProgress(
+                18,
+                written.source === "template"
+                    ? "AI episode unavailable — using the template episode."
+                    : `Episode ready: ${episodeMeta.lines} lines${episodeMeta.guests.length ? `, guests: ${episodeMeta.guests.map((g) => g.name).join(", ")}` : ""}.`,
+                { jobId },
+            );
+        }
 
         // Step 1: Script breakdown (skip if already analyzed in existing job)
         if (!scenes || scenes.length === 0) {
@@ -655,8 +738,9 @@ export async function generateVideo(script, options = {}) {
         const filename = `video-${Date.now()}.mp4`;
         const outputPath = path.join(config.outputDir, filename);
 
+        // cartoon episodes are voices-only unless a music mood is picked
         const bgm = resolveBgmTrack({
-            requestedMood: bgmMood,
+            requestedMood: fullCartoon && bgmMood === "auto" ? "none" : bgmMood,
             detectedMood,
             volume: bgmVolume,
         });
@@ -686,7 +770,7 @@ export async function generateVideo(script, options = {}) {
 
         // Step 5: Save Video to MongoDB `videos` collection
         const savedVideo = await saveVideo({
-            title: `${script.slice(0, 50).trim()}...`,
+            title: episodeMeta?.title || `${script.slice(0, 50).trim()}...`,
             script,
             language: detectedLanguage,
             voice: selectedVoice,
@@ -700,6 +784,8 @@ export async function generateVideo(script, options = {}) {
                 aiModel: model,
                 dimension: normDimension,
                 storage: "local",
+                ...(animationMode !== "off" ? { animationMode } : {}),
+                ...(episodeMeta ? { episode: episodeMeta } : {}),
                 bgm: {
                     mood: bgm?.mood || "none",
                     label: bgm?.label || "None",
@@ -741,6 +827,8 @@ export async function generateVideo(script, options = {}) {
             voice: selectedVoice,
             scenes: sceneFiles,
             storage: "local",
+            animationMode,
+            ...(episodeMeta ? { episode: episodeMeta } : {}),
         };
     } catch (error) {
         const errorMsg = error.message || String(error);

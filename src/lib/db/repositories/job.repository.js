@@ -113,6 +113,9 @@ export async function saveScenePlan(jobId, plan) {
                     detectedLanguage: plan.detectedLanguage,
                     selectedVoice: plan.selectedVoice,
                     scenePlan: plan.scenes,
+                    ...(plan.episodeMeta
+                        ? { episodeMeta: plan.episodeMeta }
+                        : {}),
                     totalScenes: plan.scenes.length,
                     progress: 20,
                     progressMessage: `${plan.scenes.length} scenes planned in [${plan.detectedLanguage}].`,

@@ -37,16 +37,19 @@ export async function GET(request) {
     const authResult = await authenticate(request);
     if (authResult instanceof NextResponse) return authResult;
 
-    const roster = Object.values(CHARACTERS).map((c) => ({
-        id: c.id,
-        name: c.name,
-        nameHi: c.nameHi,
-        role: c.role,
-        archetype: c.archetype,
-        oneLiner: c.oneLiner,
-        catchphrases: c.catchphrases,
-        voice: c.voice,
-    }));
+    // recurring cast only (script guests are registered per job)
+    const roster = Object.values(CHARACTERS)
+        .filter((c) => c.role !== "guest")
+        .map((c) => ({
+            id: c.id,
+            name: c.name,
+            nameHi: c.nameHi,
+            role: c.role,
+            archetype: c.archetype,
+            oneLiner: c.oneLiner,
+            catchphrases: c.catchphrases,
+            voice: c.voice,
+        }));
     return NextResponse.json({ success: true, characters: roster });
 }
 

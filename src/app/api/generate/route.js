@@ -37,6 +37,7 @@ export async function POST(request) {
         bgmMood,
         bgmVolume,
         characterAnimation,
+        animationMode,
         geminiApiKeys: bodyGeminiKeys,
         geminiApiKey: bodyGeminiKey,
     } = body;
@@ -112,8 +113,11 @@ export async function POST(request) {
             visualEngine,
             bgmMood,
             bgmVolume,
-            // opt-in per video; ignored unless ANIMATION_ENABLED=true
+            // opt-in per video; ignored unless ANIMATION_ENABLED=true.
+            // animationMode: "off" | "mix" | "full" (characterAnimation: true
+            // still means "mix"); omitted → ANIMATION_PIPELINE_DEFAULT
             characterAnimation,
+            animationMode,
             userId,
             geminiApiKeys: userGeminiKeys,
             onProgress: (progress, message, meta = {}) => {
@@ -146,6 +150,8 @@ export async function POST(request) {
             voice: result.voice,
             scenes: result.scenes || [],
             storage: "local",
+            animationMode: result.animationMode,
+            ...(result.episode ? { episode: result.episode } : {}),
         });
     } catch (error) {
         console.error("Video generation error:", error);

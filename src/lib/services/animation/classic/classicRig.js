@@ -335,6 +335,72 @@ function handTarget(C, g, s, side) {
     return H;
 }
 
+/** Hand props for generated guest characters (held on point / action poses). */
+export const CLASSIC_PROPS = [
+    "magnifier",
+    "lantern",
+    "scroll",
+    "staff",
+    "brush",
+    "jar",
+    "book",
+];
+
+function drawProp(prop, H, C) {
+    const [hx, hy] = H;
+    const acc = C.propColor || C.accent || "#FFC233";
+    switch (prop) {
+        case "lantern":
+            return (
+                `<path d="M ${n(hx)} ${n(hy + 6)} L ${n(hx)} ${n(hy + 22)}" ${stroke(6)}/>` +
+                `<rect x="${n(hx - 22)}" y="${n(hy + 22)}" width="44" height="58" rx="10" fill="#FFE27A" ${stroke(7)}/>` +
+                `<rect x="${n(hx - 26)}" y="${n(hy + 16)}" width="52" height="12" rx="5" fill="#5A4A3A" ${stroke(5)}/>` +
+                `<rect x="${n(hx - 26)}" y="${n(hy + 76)}" width="52" height="12" rx="5" fill="#5A4A3A" ${stroke(5)}/>` +
+                `<ellipse cx="${n(hx)}" cy="${n(hy + 52)}" rx="9" ry="14" fill="#FF9A2E"/>`
+            );
+        case "scroll":
+            return (
+                `<rect x="${n(hx - 6)}" y="${n(hy - 44)}" width="70" height="54" fill="#FFF1C9" ${stroke(6)}/>` +
+                `<rect x="${n(hx - 14)}" y="${n(hy - 50)}" width="16" height="66" rx="8" fill="#E9C98A" ${stroke(5)}/>` +
+                `<rect x="${n(hx + 56)}" y="${n(hy - 50)}" width="16" height="66" rx="8" fill="#E9C98A" ${stroke(5)}/>` +
+                `<path d="M ${n(hx + 10)} ${n(hy - 28)} L ${n(hx + 48)} ${n(hy - 28)} M ${n(hx + 10)} ${n(hy - 14)} L ${n(hx + 40)} ${n(hy - 14)}" stroke="#B08850" stroke-width="4" stroke-linecap="round"/>`
+            );
+        case "staff":
+            return (
+                limb(
+                    `M ${n(hx)} ${n(hy - 120)} L ${n(hx)} ${n(hy + 100)}`,
+                    "#8A5A2B",
+                    12,
+                    5,
+                ) +
+                `<circle cx="${n(hx)}" cy="${n(hy - 128)}" r="16" fill="${acc}" ${stroke(6)}/>`
+            );
+        case "brush":
+            return (
+                limb(
+                    `M ${n(hx)} ${n(hy)} L ${n(hx + 34)} ${n(hy - 40)}`,
+                    "#C98A4E",
+                    10,
+                    5,
+                ) +
+                `<path d="M ${n(hx + 30)} ${n(hy - 36)} L ${n(hx + 58)} ${n(hy - 70)} L ${n(hx + 44)} ${n(hy - 30)} Z" fill="#E8D7A8" ${stroke(5)}/>`
+            );
+        case "jar":
+            return (
+                `<path d="M ${n(hx + 4)} ${n(hy - 70)} Q ${n(hx - 30)} ${n(hy - 50)} ${n(hx - 20)} ${n(hy - 14)} Q ${n(hx + 22)} ${n(hy + 8)} ${n(hx + 64)} ${n(hy - 14)} Q ${n(hx + 74)} ${n(hy - 50)} ${n(hx + 40)} ${n(hy - 70)} Z" fill="#E8A33C" ${stroke(7)}/>` +
+                `<rect x="${n(hx)}" y="${n(hy - 84)}" width="44" height="16" rx="6" fill="#B8742E" ${stroke(5)}/>` +
+                `<path d="M ${n(hx + 2)} ${n(hy - 40)} Q ${n(hx + 22)} ${n(hy - 30)} ${n(hx + 44)} ${n(hy - 40)}" fill="none" stroke="#FFE27A" stroke-width="5" stroke-linecap="round"/>`
+            );
+        case "book":
+            return (
+                `<rect x="${n(hx - 6)}" y="${n(hy - 56)}" width="62" height="72" rx="6" fill="${acc}" ${stroke(7)}/>` +
+                `<path d="M ${n(hx + 4)} ${n(hy - 46)} L ${n(hx + 4)} ${n(hy + 6)}" stroke="#FFFFFF" stroke-width="5"/>`
+            );
+        default:
+            return "";
+    }
+}
+
 function drawArm(C, g, s, side) {
     const S = [side * g.shoulderX, g.shoulderY];
     const H = handTarget(C, g, s, side);
@@ -349,10 +415,10 @@ function drawArm(C, g, s, side) {
         30,
     );
     const holdsProp =
-        C.prop === "magnifier" &&
-        side > 0 &&
-        (s.pose === "point" || s.pose === "action");
-    if (holdsProp) {
+        C.prop && side > 0 && (s.pose === "point" || s.pose === "action");
+    if (holdsProp && C.prop !== "magnifier") {
+        svg += drawProp(C.prop, H, C);
+    } else if (holdsProp) {
         const lens = [H[0] + 40, H[1] - 50];
         svg += limb(
             `M ${n(H[0])} ${n(H[1])} L ${n(lens[0] - 14)} ${n(lens[1] + 18)}`,
@@ -432,6 +498,11 @@ function drawBehind(C, g, m, t) {
         const bw = C.bodyW * 0.5;
         return `<path d="M ${n(-bw + 6)} ${n(g.bodyBottom - 40)} L ${n(-bw - 10 - tr * 40)} ${n(g.bodyBottom + 4 - tr * 10 + flutter * 0.3)} L ${n(-bw + 30)} ${n(g.bodyBottom - 2)} Z" fill="${C.outfitDark}" ${stroke(5)}/>`;
     }
+    if (C.cape) {
+        const bw = C.bodyW * 0.6;
+        const sw = Math.sin(t * 2.2) * 4 - tr * 30;
+        return `<path d="M ${n(-C.bodyW * 0.36)} ${n(top + 8)} L ${n(C.bodyW * 0.36)} ${n(top + 8)} L ${n(bw + sw * 0.3)} ${n(g.bodyBottom + 6)} L ${n(-bw + sw)} ${n(g.bodyBottom + 6)} Z" fill="${C.cape}" ${stroke(6)}/>`;
+    }
     if (C.gamchha) {
         const x0 = -C.bodyW * 0.24;
         const d = `M ${n(x0)} ${n(top + 6)} Q ${n(x0 - 30 - tr * 40)} ${n(top + 50 - tr * 20)} ${n(x0 - 26 - tr * 95)} ${n(top + 100 - tr * 55 + flutter)}`;
@@ -493,6 +564,19 @@ function drawBody(C, g, m, t) {
         svg += `<path d="M ${n(-tw * 0.7 + 12)} ${n(top + 16)} Q ${n(bw * 0.2 + 10)} ${n(mid)} ${n(bw * 0.78 + 4)} ${n(bot - 22)}" fill="none" stroke="${C.accent}" stroke-width="5" stroke-linecap="round"/>`;
         return svg;
     }
+    if (C.body === "robe") {
+        // long kurta / robe / tunic (generated guests)
+        const tw = C.bodyW * 0.38;
+        const bw = C.bodyW * 0.54;
+        const sway = Math.sin(t * 2) * 2 - tr * 8;
+        svg += `<path d="M ${n(-tw)} ${n(top + 22)} Q ${n(-tw)} ${n(top)} ${n(-tw + 22)} ${n(top)} L ${n(tw - 22)} ${n(top)} Q ${n(tw)} ${n(top)} ${n(tw)} ${n(top + 22)} L ${n(bw + sway)} ${n(bot - 8)} Q ${n(bw + sway)} ${n(bot + 6)} ${n(bw - 16 + sway)} ${n(bot + 6)} L ${n(-bw + 16 + sway)} ${n(bot + 6)} Q ${n(-bw + sway)} ${n(bot + 6)} ${n(-bw + sway)} ${n(bot - 8)} Z" fill="${C.outfit}" ${stroke()}/>`;
+        svg += `<path d="M ${n(-tw * 0.45)} ${n(top + 2)} L 0 ${n(top + 34)} L ${n(tw * 0.45)} ${n(top + 2)}" fill="${C.shirt}" ${stroke(5)}/>`;
+        svg += `<path d="M 0 ${n(top + 34)} L 0 ${n(top + C.bodyH * 0.6)}" ${stroke(5)}/>`;
+        const wy = top + C.bodyH * 0.5;
+        svg += `<rect x="${n(-tw * 1.08)}" y="${n(wy - 11)}" width="${n(tw * 2.16)}" height="22" rx="10" fill="${C.accent}" ${stroke(5)}/>`;
+        svg += `<path d="M ${n(-bw * 0.88 + sway)} ${n(bot - 16)} L ${n(bw * 0.88 + sway)} ${n(bot - 16)}" stroke="${C.outfitDark}" stroke-width="8" stroke-linecap="round"/>`;
+        return svg;
+    }
     // coat (Raazu)
     const tw = C.bodyW * 0.4;
     const bw = C.bodyW * 0.5;
@@ -539,6 +623,9 @@ function hairCap(R, { sideY, fringeY, bumps, depth }) {
 }
 
 function drawHairBack(C, R) {
+    if (C.hair === "long") {
+        return `<path d="M ${n(-R * 1.02)} ${n(-R * 0.2)} Q ${n(-R * 1.2)} ${n(R * 0.7)} ${n(-R * 0.86)} ${n(R * 1.02)} L ${n(R * 0.86)} ${n(R * 1.02)} Q ${n(R * 1.2)} ${n(R * 0.7)} ${n(R * 1.02)} ${n(-R * 0.2)} Z" fill="${C.hairColor}" ${stroke()}/>`;
+    }
     if (C.hair === "bun") {
         return `<circle cx="0" cy="${n(-R * 1.0)}" r="${n(R * 0.38)}" fill="${C.hairColor}" ${stroke()}/><circle cx="${n(R * 0.22)}" cy="${n(-R * 1.18)}" r="9" fill="${C.accent}" ${stroke(4)}/>`;
     }
@@ -572,10 +659,98 @@ function drawHairFront(C, R, t, yaw, m, wind) {
             -tr * 26 + Math.sin(t * 4) * 5 + Math.sin(t * 26) * wind * 6;
         s += `<g transform="rotate(${n(rot)} 0 ${n(-R * 0.98)})"><path d="M ${n(-R * 0.22)} ${n(-R * 0.92)} C ${n(-R * 0.36)} ${n(-R * 1.42)} ${n(R * 0.36)} ${n(-R * 1.58)} ${n(R * 0.36)} ${n(-R * 1.22)} C ${n(R * 0.36)} ${n(-R * 1.02)} ${n(R * 0.08)} ${n(-R * 1.0)} ${n(R * 0.08)} ${n(-R * 1.18)} C ${n(R * 0.08)} ${n(-R * 1.28)} ${n(R * 0.2)} ${n(-R * 1.28)} ${n(R * 0.2)} ${n(-R * 1.2)} L ${n(R * 0.22)} ${n(-R * 0.9)} Z" fill="${C.hairColor}" ${stroke()}/></g>`;
         s += `<path d="${hairCap(R, { sideY: -R * 0.12, fringeY: -R * 0.56, bumps: 5, depth: R * 0.13 })}" fill="${C.hairColor}" ${stroke()}/>`;
-    } else {
+    } else if (C.hair === "bald") {
+        // just a little fringe above the ears + a shine
+        for (const sd of [-1, 1]) {
+            s += `<path d="M ${n(sd * R * 1.0)} ${n(-R * 0.05)} Q ${n(sd * R * 1.08)} ${n(-R * 0.42)} ${n(sd * R * 0.82)} ${n(-R * 0.55)} Q ${n(sd * R * 0.86)} ${n(-R * 0.25)} ${n(sd * R * 0.78)} ${n(-R * 0.02)} Z" fill="${C.hairColor}" ${stroke(5)}/>`;
+        }
+        s += `<ellipse cx="${n(-R * 0.34)}" cy="${n(-R * 0.72)}" rx="${n(R * 0.16)}" ry="${n(R * 0.07)}" fill="#FFFFFF" opacity="0.45" transform="rotate(-20 ${n(-R * 0.34)} ${n(-R * 0.72)})"/>`;
+    } else if (C.hair !== "none") {
         s += `<path d="${hairCap(R, { sideY: R * 0.05, fringeY: -R * 0.46, bumps: 2, depth: R * 0.16 })}" fill="${C.hairColor}" ${stroke()}/>`;
     }
+    s += drawHeadwear(C, R);
     return `${s}</g>`;
+}
+
+/** Headwear for generated guests, head-local (drawn with the hair). */
+export const CLASSIC_HEADWEAR = [
+    "none",
+    "pith_helmet",
+    "hat",
+    "turban",
+    "crown",
+    "cap",
+    "headscarf",
+];
+
+function drawHeadwear(C, R) {
+    const col = C.hatColor || C.accent;
+    const dark = C.hatDark || C.outfitDark || OUT;
+    switch (C.headwear) {
+        case "pith_helmet":
+            return (
+                `<ellipse cx="0" cy="${n(-R * 0.5)}" rx="${n(R * 1.3)}" ry="${n(R * 0.17)}" fill="${col}" ${stroke()}/>` +
+                `<path d="M ${n(-R * 0.96)} ${n(-R * 0.52)} Q ${n(-R * 0.94)} ${n(-R * 1.4)} 0 ${n(-R * 1.4)} Q ${n(R * 0.94)} ${n(-R * 1.4)} ${n(R * 0.96)} ${n(-R * 0.52)} Z" fill="${col}" ${stroke()}/>` +
+                `<path d="M ${n(-R * 0.94)} ${n(-R * 0.66)} Q 0 ${n(-R * 0.56)} ${n(R * 0.94)} ${n(-R * 0.66)}" fill="none" stroke="${dark}" stroke-width="14"/>` +
+                `<circle cx="0" cy="${n(-R * 1.4)}" r="${n(R * 0.08)}" fill="${dark}" ${stroke(4)}/>`
+            );
+        case "hat":
+            return (
+                `<path d="M ${n(-R * 0.72)} ${n(-R * 0.6)} L ${n(-R * 0.66)} ${n(-R * 1.28)} Q 0 ${n(-R * 1.4)} ${n(R * 0.66)} ${n(-R * 1.28)} L ${n(R * 0.72)} ${n(-R * 0.6)} Z" fill="${col}" ${stroke()}/>` +
+                `<path d="M ${n(-R * 0.7)} ${n(-R * 0.76)} L ${n(R * 0.7)} ${n(-R * 0.76)}" stroke="${dark}" stroke-width="16"/>` +
+                `<ellipse cx="0" cy="${n(-R * 0.58)}" rx="${n(R * 1.28)}" ry="${n(R * 0.15)}" fill="${col}" ${stroke()}/>`
+            );
+        case "turban":
+            return (
+                `<ellipse cx="0" cy="${n(-R * 0.92)}" rx="${n(R * 0.86)}" ry="${n(R * 0.5)}" fill="${col}" ${stroke()}/>` +
+                `<ellipse cx="0" cy="${n(-R * 0.62)}" rx="${n(R * 1.04)}" ry="${n(R * 0.36)}" fill="${col}" ${stroke()}/>` +
+                `<path d="M ${n(-R * 0.9)} ${n(-R * 0.5)} Q ${n(-R * 0.2)} ${n(-R * 1.0)} ${n(R * 0.7)} ${n(-R * 1.15)} M ${n(-R * 0.6)} ${n(-R * 0.36)} Q ${n(R * 0.1)} ${n(-R * 0.8)} ${n(R * 0.96)} ${n(-R * 0.82)}" fill="none" stroke="${dark}" stroke-width="6" stroke-linecap="round"/>` +
+                `<circle cx="0" cy="${n(-R * 0.66)}" r="${n(R * 0.11)}" fill="${C.jewel || "#E8384A"}" ${stroke(5)}/>` +
+                `<path d="M ${n(R * 0.06)} ${n(-R * 0.74)} Q ${n(R * 0.3)} ${n(-R * 1.3)} ${n(R * 0.12)} ${n(-R * 1.42)}" fill="none" stroke="${OUT}" stroke-width="14" stroke-linecap="round"/><path d="M ${n(R * 0.06)} ${n(-R * 0.74)} Q ${n(R * 0.3)} ${n(-R * 1.3)} ${n(R * 0.12)} ${n(-R * 1.42)}" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>`
+            );
+        case "crown": {
+            const pts = [];
+            const k = 5;
+            for (let i = 0; i <= k * 2; i++) {
+                const x = -R * 0.78 + (i / (k * 2)) * R * 1.56;
+                pts.push(`${n(x)} ${n(i % 2 ? -R * 1.0 : -R * 1.36)}`);
+            }
+            return (
+                `<path d="M ${n(-R * 0.82)} ${n(-R * 0.58)} L ${pts.join(" L ")} L ${n(R * 0.82)} ${n(-R * 0.58)} Z" fill="${C.hatColor || "#F5C542"}" ${stroke()}/>` +
+                `<path d="M ${n(-R * 0.82)} ${n(-R * 0.7)} L ${n(R * 0.82)} ${n(-R * 0.7)}" stroke="${dark}" stroke-width="8"/>` +
+                [-0.45, 0, 0.45]
+                    .map(
+                        (u) =>
+                            `<circle cx="${n(u * R)}" cy="${n(-R * 0.84)}" r="${n(R * 0.08)}" fill="${C.jewel || "#E8384A"}" ${stroke(4)}/>`,
+                    )
+                    .join("")
+            );
+        }
+        case "cap":
+            return (
+                `<ellipse cx="${n(R * 0.62)}" cy="${n(-R * 0.5)}" rx="${n(R * 0.62)}" ry="${n(R * 0.13)}" fill="${dark}" ${stroke()}/>` +
+                `<path d="M ${n(-R * 0.98)} ${n(-R * 0.45)} Q ${n(-R * 0.92)} ${n(-R * 1.28)} 0 ${n(-R * 1.28)} Q ${n(R * 0.92)} ${n(-R * 1.28)} ${n(R * 0.98)} ${n(-R * 0.45)} Z" fill="${col}" ${stroke()}/>` +
+                `<circle cx="0" cy="${n(-R * 1.26)}" r="${n(R * 0.08)}" fill="${dark}" ${stroke(4)}/>`
+            );
+        case "headscarf":
+            return `<path d="M ${n(-R * 1.1)} ${n(R * 0.62)} Q ${n(-R * 1.22)} ${n(-R * 1.22)} 0 ${n(-R * 1.24)} Q ${n(R * 1.22)} ${n(-R * 1.22)} ${n(R * 1.1)} ${n(R * 0.62)} L ${n(R * 0.9)} ${n(R * 0.56)} Q ${n(R * 0.98)} ${n(-R * 0.82)} 0 ${n(-R * 0.86)} Q ${n(-R * 0.98)} ${n(-R * 0.82)} ${n(-R * 0.9)} ${n(R * 0.56)} Z" fill="${col}" ${stroke()}/>`;
+        default:
+            return "";
+    }
+}
+
+/** Beard (around the mouth, never over it) and mustache for guests. */
+function drawBeard(C, R, x) {
+    if (!C.beard) return "";
+    const c = C.beardColor || C.hairColor;
+    const d = `M ${n(x - R * 0.99)} ${n(-R * 0.05)} C ${n(x - R * 1.0)} ${n(R * 0.95)} ${n(x - R * 0.5)} ${n(R * 1.34)} ${n(x)} ${n(R * 1.34)} C ${n(x + R * 0.5)} ${n(R * 1.34)} ${n(x + R * 1.0)} ${n(R * 0.95)} ${n(x + R * 0.99)} ${n(-R * 0.05)} L ${n(x + R * 0.8)} ${n(-R * 0.05)} Q ${n(x + R * 0.78)} ${n(R * 0.38)} ${n(x + R * 0.46)} ${n(R * 0.4)} Q ${n(x + R * 0.46)} ${n(R * 0.88)} ${n(x)} ${n(R * 0.88)} Q ${n(x - R * 0.46)} ${n(R * 0.88)} ${n(x - R * 0.46)} ${n(R * 0.4)} Q ${n(x - R * 0.78)} ${n(R * 0.38)} ${n(x - R * 0.8)} ${n(-R * 0.05)} Z`;
+    return `<path d="${d}" fill="${c}" ${stroke()}/>`;
+}
+
+function drawMustache(C, R, x) {
+    if (!C.mustache) return "";
+    const c = C.beardColor || C.hairColor;
+    return `<path d="M ${n(x)} ${n(R * 0.42)} Q ${n(x - R * 0.2)} ${n(R * 0.33)} ${n(x - R * 0.38)} ${n(R * 0.48)} Q ${n(x - R * 0.18)} ${n(R * 0.5)} ${n(x)} ${n(R * 0.46)} Q ${n(x + R * 0.18)} ${n(R * 0.5)} ${n(x + R * 0.38)} ${n(R * 0.48)} Q ${n(x + R * 0.2)} ${n(R * 0.33)} ${n(x)} ${n(R * 0.42)} Z" fill="${c}" ${stroke(5)}/>`;
 }
 
 function eyeMode(expression, talking) {
@@ -961,6 +1136,7 @@ function drawHead(C, R, s, uid, m) {
         head += `<ellipse cx="${n(P.x)}" cy="${n(R * 0.36)}" rx="${n(R * 0.15 * (0.5 + 0.5 * P.sc))}" ry="${n(R * 0.09)}" fill="#FF7E96" opacity="${rosy}"/>`;
     }
     head += "</g>";
+    head += drawBeard(C, R, proj(0).x);
     head += drawHairFront(C, R, t, yaw, m, wind);
     const eyes = drawEyes(C, R, s, uid, proj);
     eyes.R = R;
@@ -975,6 +1151,7 @@ function drawHead(C, R, s, uid, m) {
               ? `<path d="M ${n(N.x)} ${n(R * 0.2)} Q ${n(nx + Math.sign(yaw) * R * 0.08)} ${n(R * 0.3)} ${n(N.x)} ${n(R * 0.38)}" fill="${C.skin}" ${stroke(5)}/>`
               : `<path d="M ${n(nx)} ${n(R * 0.24)} Q ${n(nx + R * 0.12)} ${n(R * 0.32)} ${n(nx)} ${n(R * 0.39)}" fill="none" ${stroke(5)}/>`;
     head += drawMouth(C, R, s, uid, proj);
+    head += drawMustache(C, R, proj(0).x);
     head += "</g>";
     head += eyes.extra;
     head += drawGlasses(C, eyes, clamp01(s.glint || 0), proj);

@@ -51,7 +51,27 @@ async def run(text, output_file, voice, rate, pitch, words_file=None):
     raise RuntimeError(f"Edge TTS failed: {last_error}")
 
 
+def run_pyttsx3(text, output_file):
+    """Offline fallback (robotic). Only used after Edge TTS keeps failing."""
+    import pyttsx3
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
+    engine = pyttsx3.init()
+    engine.setProperty("rate", 165)
+    engine.save_to_file(text, output_file)
+    engine.runAndWait()
+    if not os.path.exists(output_file) or os.path.getsize(output_file) < 1000:
+        raise RuntimeError("pyttsx3 produced no audio")
+
+
 def main():
+    if len(sys.argv) >= 4 and sys.argv[1] == "--pyttsx3":
+        try:
+            run_pyttsx3(sys.argv[2], sys.argv[3])
+        except Exception as error:  # noqa: BLE001
+            print(f"pyttsx3 error: {error}", file=sys.stderr)
+            sys.exit(1)
+        return
     if len(sys.argv) < 4:
         print("Usage: python tts_line.py <text> <output> <voice> [rate] [pitch]")
         sys.exit(1)

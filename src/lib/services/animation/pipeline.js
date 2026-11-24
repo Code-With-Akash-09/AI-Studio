@@ -14,6 +14,7 @@
  */
 import { ACTIONS, EXPRESSIONS, POSES } from "../../../constants/animation.js";
 export { characterAnimationFor } from "./flags.js";
+export { simplifyDialogue } from "./episode.js";
 import { normalizeDialogue, renderDialogueScene } from "./index.js";
 
 /** Speakers the AI may use (Sheru the dog never speaks; he is a stage reveal). */

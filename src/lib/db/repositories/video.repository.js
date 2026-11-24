@@ -30,6 +30,13 @@ export async function saveVideo(videoData) {
             aiModel: videoData.model || null,
             dimension: videoData.dimension || "vertical",
             storage: "local",
+            // character-animation videos (opt-in): mode + cartoon episode info
+            ...(videoData.metadata?.animationMode
+                ? { animationMode: videoData.metadata.animationMode }
+                : {}),
+            ...(videoData.metadata?.episode
+                ? { episode: videoData.metadata.episode }
+                : {}),
         },
         createdAt: new Date(),
         updatedAt: new Date(),

@@ -175,10 +175,13 @@ API (only when `ANIMATION_ENABLED=true`): `GET /api/animation` (roster),
 Everything is off unless `ANIMATION_ENABLED=true`; with it off the daily
 pipeline, prompts and `/api/animation` (404) behave exactly as before.
 
-- **Per video:** POST `/api/generate` with `"characterAnimation": true`, or tick
-  "Character dialogue scenes (beta)" in Studio settings on the Generate page.
-  `ANIMATION_PIPELINE_DEFAULT=true` turns it on for every job (still needs the
-  master flag). Resumed jobs keep the option they were created with.
+- **Per video:** Generate page → Studio settings → **Video Mode**:
+  *Stock visuals* / *Mix characters* / *Full cartoon* (remembered in the
+  browser; hidden when `ANIMATION_ENABLED` is off — the page asks
+  `GET /api/animation`). API: POST `/api/generate` with
+  `"animationMode": "off" | "mix" | "full"`; the old `"characterAnimation": true`
+  still means `mix`. Jobs that don't choose follow `ANIMATION_PIPELINE_DEFAULT`
+  (`full` | `mix`/`true` | `off`). Resumed jobs keep their own mode.
 - **analyzeScript:** when on, the prompt allows 1-2 `visualType: "character"`
   scenes with a `dialogue` script (Raazu/Golu/Kissa Nani, Sheru as stage dog).
   `normalizeAnalysis()` drops extra/invalid character scenes back to `video`.
@@ -195,3 +198,83 @@ pipeline, prompts and `/api/animation` (404) behave exactly as before.
   seeds a resumable job (only into a DB whose name contains `anim`/`test`),
   then POST `/api/generate` with that `jobId` runs the real pipeline path
   without an AI call.
+
+## Full cartoon mode (`animationMode: "full"`)
+
+The whole video is one classic-style cartoon episode written by the AI from the
+user's script — any language in, Hindi dialogue out:
+
+1. `episode.js` `writeEpisode()` asks the AI (selected provider via the Gemini
+   rotator, then any other configured provider: OpenAI / Anthropic) for an
+   episode: hook → Golu's funny guess → the fact explained conversationally →
+   humor beats + one reveal → punchline + follow sign-off. Hosts Raazu + Golu
+   (Nani / Sheru optional) plus 0-2 **script-specific guests**.
+2. `sanitizeEpisode()` validates it (1-3 parts of exactly 2 speakers, 6-30
+   lines, ≥70 % Devanagari, known speakers, safe actions, ≤3 moves in 9:16),
+   then the **staging guard** runs on every part; a failing part is simplified
+   (no movement / Sheru) and re-checked.
+3. Invalid → **one repair round** (errors fed back to the AI) → otherwise a
+   deterministic **template episode** built from the script's own sentences
+   (`templateEpisode()`), so a job never fails silently. `job.episodeMeta` /
+   `video.metadata.episode.source` say `ai`, `ai-repaired` or `template`.
+4. Each part is one pipeline scene (`visualType: "character"`), rendered by
+   `renderDialogueScene()` (25 fps, voices only); a part that still fails at
+   render time retries simplified, then falls back to a stock visual. The
+   result goes through the normal `combineScenes()` → `saveVideo()` flow.
+
+Audio: voices only. The Background Audio dropdown is respected — pick a mood
+to add music; *Auto* and *None* = no music in cartoon mode.
+
+### Guest characters (`guests.js`)
+
+The AI describes each guest (name, role, gender, body type, skin, hair,
+headwear, outfit type + colours, glasses / beard / mustache, prop, voice base +
+pitch + rate). `normalizeGuestSpec()` validates every field against the rig's
+parts and fills gaps from a role preset (archaeologist, scientist, king,
+queen, ghost, sage, villager, teacher, explorer); `buildGuestCharacter()` maps
+it onto the classic rig (new parts: headwear pith_helmet / hat / turban /
+crown / cap / headscarf, bald / long hair, beard + mustache that never cover
+the mouth, robe body, cape, props lantern / scroll / staff / brush / jar /
+book). Voices use the two Edge Hindi voices (Madhur / Swara) with pitch kept
+audibly apart from the hosts. Guest ids are derived from the spec, so resumed
+jobs re-create the same guest. Sheets: `node .scripts/animation/render-guests.mjs [out.png] [guests.json]`.
+
+### Edge TTS resilience
+
+`synthesizeLine()` retries Edge TTS with a long backoff (0, 3, 8, 15, 30 s;
+`ANIMATION_TTS_BACKOFF` overrides) before the offline pyttsx3 voice (needs
+eSpeak on Linux), and only then a placeholder (which makes the scene fall
+back). After one full backoff fails, later lines try Edge once for 5 minutes.
+
+### Automated / scheduled generation
+
+There was no scheduler in this repo; these are the automated entry points and
+both pass **no** mode, so the server default applies:
+
+- `POST /api/generate/auto { "topic": "..." }` → `202 { jobId }` (poll
+  `GET /api/jobs/<jobId>`; `?wait=1` blocks). Auth: a user's Bearer token, or
+  header `x-automation-key: $AUTOMATION_SECRET` (video owned by
+  `AUTOMATION_USER_ID`).
+- `node .scripts/animation/auto-episode.mjs --topic="..."` or
+  `--topics-file=topics.txt` (uses the next unused line, tracks `topics.txt.done`).
+  Cron, daily 09:00:
+  `0 9 * * * cd /path/to/ai-studio && node .scripts/animation/auto-episode.mjs --topics-file=topics.txt >> logs/auto.log 2>&1`
+
+Env lines to make every automated video a full cartoon (do not set these on a
+live server until you want it):
+
+```
+ANIMATION_ENABLED=true
+ANIMATION_PIPELINE_DEFAULT=full
+# optional
+AUTOMATION_SECRET=<long random string>
+AUTOMATION_USER_ID=<mongo user id that owns automated videos>
+AUTOMATION_DIMENSION=vertical
+AUTOMATION_BGM=none
+AUTOMATION_PROVIDER=gemini
+ANIMATION_TTS_BACKOFF=0,3,8,15,30
+```
+
+QA: `node .scripts/animation/rig-qa.mjs --staging --fuzz=300 --episode=ep.json`
+adds the honey template episode, any episode JSON, and guest fuzz cases
+(random preset guests replacing a speaker) to the staging report.
