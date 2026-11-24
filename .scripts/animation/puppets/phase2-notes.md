@@ -94,3 +94,8 @@ Code lives in the worktree at src/lib/services/animation/painted/ (python next t
 - Stage tint/gain now applied to characters (engine Stage.tint → grade and inserts).
 - Check: painted-test/st/<stage>/ + painted-test/stages-contact.jpg (wide/two/CU on every plate) — scale and headroom OK, no planner issues.
 - NEXT: M3 integration (painted mode in the Generate flow).
+
+### M3 step 1 — mode + writer (Nov 25 ~00:10 IST)
+- ded1959: "painted" in ANIMATION_MODES (flags.js), "Painted puppets" in StudioSettings Video Mode (grid 2x2), generate page forces 16:9 for it.
+- painted/episode.js: writePaintedEpisode (AI via ai.factory, providers fallback, sanitize → 1 repair round → template), paintedScenes (one pipeline scene per part, painted: true, part = {stage, cast, lines[{speaker,to,emotion,text,props,reaction}]}).
+- NEXT: painted/render.js (per-line Edge TTS → spec → plan.py → guard → render.py) + video.service hook.
