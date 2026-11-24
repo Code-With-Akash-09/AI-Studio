@@ -105,3 +105,7 @@ Code lives in the worktree at src/lib/services/animation/painted/ (python next t
 - Guard bug fixed (commit after 054bf7a): a horizontal "take-in" move was accepted though the head stayed cut at the top edge; candidates must now clear the head; added push-out-top / take-in-both alternatives. The Bittu-CU-beside-tall-Kabir case now resolves (Kabir pushed out of frame).
 - Smoke: temp/painted-smoke.mjs → temp/scene-99.mp4 (haveli-night, 3 lines, 8 shots, 14.9 s, 1920x1080 25fps SAR1 + AAC 44.1k stereo) in 179 s. Note: a neighbour's hand can still peek in at a CU edge (only heads are guarded).
 - NEXT: dev server on 4020 (worktree only) + M4 episode through the Generate flow.
+
+### M3 step 3 / M4 start (Nov 24 23:26 IST)
+- Dev server: worktree only, `pnpm dev` (node server.js) PORT=4020, DB "ai-studio-anim" (log /workspace/anim-demo/logs/dev-4020.log). Port 4010 untouched.
+- M4 run: temp/m4-run.mjs registers a local test user (anim-test-p2-*@local.test, test DB only) and POSTs /api/generate {animationMode: "painted", dimension: horizontal, bgmMood: none} with temp/m4-script.txt (Bhangarh fort mystery). Log /workspace/anim-demo/logs/m4-run.log. Resume: re-POST with the same jobId (job state in ai-studio-anim).

@@ -78,10 +78,10 @@ export const PAINTED_EMOTIONS = [
 export const PAINTED_LIMITS = {
     parts: 3,
     castPerPart: 4,
-    minLines: 10,
-    maxLines: 22,
+    minLines: 11,
+    maxLines: 18,
     minPartLines: 3,
-    maxChars: 110,
+    maxChars: 75,
     maxProps: 4,
     minSpeakers: 3,
 };
@@ -101,10 +101,10 @@ Kabir is the lead who solves the mystery with evidence (never confirms ghosts or
 SETS (painted backgrounds; one per part): ${stages.map((s) => `"${s.id}" = ${s.label || s.id}`).join("; ")}.
 PROPS (painted close-up inserts; use only when the line talks about that object): ${props.map((p) => `"${p.id}" = ${p.label}`).join("; ")}.
 
-EPISODE SHAPE (16:9, about 45-60 seconds, ${L.minLines + 4}-${L.maxLines - 4} lines in total, each line max ${L.maxChars} characters, natural spoken Hindi):
+EPISODE SHAPE (16:9, about 45-60 seconds. The voices speak only ~9 characters per second, so the WHOLE episode has only 420-560 characters of dialogue: ${L.minLines + 1}-${L.maxLines - 2} SHORT lines of 25-45 characters (max ${L.maxChars}), natural spoken Hindi):
 1. HOOK (first line): a surprising question or claim.
 2. Bittu's funny wrong guess or fear.
-3. The mystery explained with evidence in small accurate steps (keep every fact from the script; never invent false facts).
+3. The mystery explained with evidence in small accurate steps (use the 3-4 most important facts from the script; never invent false facts).
 4. 1-2 funny reactions; one reveal line (emotion "reveal") at the key fact.
 5. A punchline joke, then a short sign-off asking viewers to follow Raaz Explain Tv for more raaz.
 At least ${L.minSpeakers} different speaking characters in the episode. 1-${L.parts} parts; each part has 2-${L.castPerPart} cast ids (everyone on screen in that part, Bholu included if present), its own set, and at least ${L.minPartLines} lines. At most ${L.maxProps} props in the episode, at most one per line.
@@ -332,10 +332,10 @@ export function sanitizePaintedEpisode(raw, script = "") {
         );
     if (!parts.length) return { episode: null, errors, warnings };
     const chars = all.reduce((a, l) => a + l.text.length, 0);
-    if (chars < 420) warnings.push(`short episode (~${chars} chars)`);
-    if (chars > 1100)
+    if (chars < 360) warnings.push(`short episode (~${chars} chars)`);
+    if (chars > 640)
         errors.push(
-            `too long (~${chars} characters of dialogue; keep it to 45-60 seconds, about 600-900 characters)`,
+            `too long (~${chars} characters of dialogue; Hindi TTS speaks only ~9 characters per second, so 45-60 seconds = about 420-560 characters of dialogue in total; use fewer / shorter lines)`,
         );
     const episode = {
         title: cleanText(raw.title || "रहस्य", 80) || "रहस्य",
