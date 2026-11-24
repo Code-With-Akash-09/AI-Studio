@@ -63,3 +63,7 @@ teeth, NOT sticking out. Thin white gutters between cells."
 - 22:47 Bholu 7 poses built: 2x2 grids (GRID=2x2 CELLS=closed,aa,O,I), pruned MBP=closed,E=I,U=I,FV=closed,L=I.
   Registration good (38-91 inliers). Blinks ghosted on idle/surprised/think/offer -> dropped (explain/sit keep blinks; laugh NO_BLINK).
   check: _check/bholu-kit.jpg. Flaws: idle 'aa' jaw slightly doubled; only 4 mouth shapes (dog).
+- 22:50 Hariprasad Dadaji 7 poses built (eyefix on surprised/think). idle/explain/offer/sit grids v1 were zoomed-out frontal
+  heads (7-16 inliers, misplaced patches) -> regenerated ("same crop, same zoom, glasses+moustache large, nose to LEFT edge")
+  and rebuilt (40+ inliers). Prunes: laugh MBP=closed,U=O,I=E (white strips under moustache); L=I on idle/explain/surprised/think.
+  check: _check/hariprasad-dadaji-kit.jpg. Flaws: mouth changes subtle under the big moustache on sit/offer.
