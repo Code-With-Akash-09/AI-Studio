@@ -1,6 +1,157 @@
 {
-  "_doc": "Painted background plates. horizon/cam_h/floor/xrange in world units (1280x720 plate px); path relative to PUPPET_ROOT/scenes when not found here; scale = plate image px per world unit.",
-  "stages": [
-    {"id": "courtyard", "label": "home courtyard (day)", "path": "courtyard-v4-x4.png", "scale": 4, "horizon": 201, "cam_h": 0.79, "floor": [360, 405], "xrange": [470, 1110], "time": "day", "tags": ["home", "ghar", "aangan", "courtyard", "day"]}
-  ]
+ "_doc": "Painted background plates. horizon/cam_h/floor/xrange in world units (1280x720 plate px); path relative to PUPPET_ROOT/scenes when not found here; scale = plate image px per world unit.",
+ "stages": [
+  {
+   "id": "courtyard",
+   "label": "home courtyard (day)",
+   "path": "courtyard-v4-x4.png",
+   "scale": 4,
+   "horizon": 201,
+   "cam_h": 0.79,
+   "floor": [
+    360,
+    405
+   ],
+   "xrange": [
+    470,
+    1110
+   ],
+   "time": "day",
+   "tags": [
+    "home",
+    "ghar",
+    "aangan",
+    "courtyard",
+    "day"
+   ]
+  },
+  {
+   "id": "haveli-night",
+   "label": "old haveli hall (night, lanterns)",
+   "path": "haveli-night-x2.png",
+   "scale": 2,
+   "horizon": 337,
+   "cam_h": 1.1,
+   "floor": [
+    520,
+    617
+   ],
+   "xrange": [
+    380,
+    1000
+   ],
+   "time": "night",
+   "tint": [
+    0.84,
+    0.86,
+    1.0
+   ],
+   "gain": 0.9,
+   "tags": [
+    "haveli",
+    "हवेली",
+    "night",
+    "रात",
+    "ghost",
+    "भूत",
+    "bhoot",
+    "lantern",
+    "mystery",
+    "रहस्य"
+   ]
+  },
+  {
+   "id": "study",
+   "label": "grandfather's study (books, globe)",
+   "path": "study-x2.png",
+   "scale": 2,
+   "horizon": 323,
+   "cam_h": 1.1,
+   "floor": [
+    500,
+    602
+   ],
+   "xrange": [
+    300,
+    900
+   ],
+   "time": "day",
+   "tags": [
+    "study",
+    "library",
+    "book",
+    "किताब",
+    "history",
+    "इतिहास",
+    "globe",
+    "map",
+    "पढ़ाई",
+    "school"
+   ]
+  },
+  {
+   "id": "fort-dusk",
+   "label": "old fort ruins (dusk)",
+   "path": "fort-dusk-x2.png",
+   "scale": 2,
+   "horizon": 317,
+   "cam_h": 1.1,
+   "floor": [
+    490,
+    596
+   ],
+   "xrange": [
+    300,
+    1000
+   ],
+   "time": "dusk",
+   "tint": [
+    1.07,
+    0.92,
+    0.82
+   ],
+   "gain": 0.97,
+   "tags": [
+    "fort",
+    "किला",
+    "qila",
+    "ruins",
+    "खंडहर",
+    "king",
+    "राजा",
+    "treasure",
+    "खज़ाना",
+    "bhangarh",
+    "भानगढ़"
+   ]
+  },
+  {
+   "id": "village-lane",
+   "label": "village lane (morning)",
+   "path": "village-lane-x2.png",
+   "scale": 2,
+   "horizon": 344,
+   "cam_h": 1.1,
+   "floor": [
+    520,
+    622
+   ],
+   "xrange": [
+    300,
+    1000
+   ],
+   "time": "day",
+   "tags": [
+    "village",
+    "गाँव",
+    "gaon",
+    "lane",
+    "गली",
+    "gali",
+    "street",
+    "market",
+    "बाज़ार"
+   ]
+  }
+ ]
 }

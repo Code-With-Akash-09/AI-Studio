@@ -31,6 +31,7 @@ class Stage:
         self.xrange = spec.get('xrange', [420, 1100])             # usable feet x range
         self.scale = float(spec.get('scale', 4))
         self.path = spec['path']; self._img = None
+        self.tint = TINT * np.array(spec.get('tint', [1, 1, 1]), np.float32) * float(spec.get('gain', 1.0))   # per-plate light on characters
     @property
     def img(self):
         if self._img is None:

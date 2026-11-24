@@ -102,7 +102,7 @@ class Episode:
         sh = cv2.GaussianBlur(a, (0, 0), 18)[..., None] if a.ndim == 3 else cv2.GaussianBlur(a, (0, 0), 18)
         sh = np.roll(np.roll(sh.reshape(SH, SW, 1), 18, 0), 10, 1)
         img = bg * (1 - 0.45 * sh)
-        rgb = lay[..., :3] * E.TINT
+        rgb = lay[..., :3] * self.stage.tint
         img = rgb + img * (1 - a)
         return img
 
@@ -117,7 +117,7 @@ class Episode:
             r = E.char_layer(win, A, kit, P, face, shot)
             if r is None: continue
             cimg, (gx, gy, Hs, sc) = r
-            layers.append((A['feet'][1], E.grade(cimg, amb, gx, gy, Hs, defocus=(shot.get('defocus') or {}).get(a, 0) * (SH / win[3]) / 4), gx, gy, Hs))
+            layers.append((A['feet'][1], E.grade(cimg, amb, gx, gy, Hs, tint=self.stage.tint, defocus=(shot.get('defocus') or {}).get(a, 0) * (SH / win[3]) / 4), gx, gy, Hs))
         dens = np.zeros((SH, SW), np.float32)
         for _, cimg, gx, gy, Hs in layers:
             if gy < SH + 0.05 * Hs: dens = 1 - (1 - dens) * (1 - E.shadow_density(cimg[..., 3] / 255, gx, gy, Hs))

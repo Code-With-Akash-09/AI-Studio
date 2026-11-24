@@ -84,3 +84,13 @@ Code lives in the worktree at src/lib/services/animation/painted/ (python next t
   wavs -> 1920x1080 25 fps + 44.1 kHz stereo AAC, chunked parallel workers), cast.json (9 cast, Edge TTS voices/pitch), stages.json.
   Test: puppets/painted-test (talk3 lines, 4 actors incl. Bholu): plan has no guard issues; contact painted-test/contact.jpg OK.
   Next: painted prop inserts + extra painted backgrounds, then the JS step (writer, TTS, pipeline mode).
+
+### M2 step 2 — props (80480eb)
+- 10 painted props (map, key, lantern, diary, letter, watch, photo, coins, compass, magnifier) keyed from green-screen in props/<id>.png; registry painted/props.json; script .scripts/animation/puppets/p2_props.py; sheet props/_props.jpg.
+
+### M2 step 3 — painted backgrounds per scene (Nov 24 ~23:50 IST)
+- 4 new plates (sources scenes/_src/*.jpg, generated with courtyard.jpg as style ref) → scenes/<id>-x2.png (2560x1440, scale 2, cubic+mild sharpen).
+- stages.json: courtyard, haveli-night (tint cool, gain .9), study, fort-dusk (warm tint), village-lane. Calibration: cam_h 1.1 m, feet row ≈ wall base + 45% of the floor, horizon = feet - 255.
+- Stage tint/gain now applied to characters (engine Stage.tint → grade and inserts).
+- Check: painted-test/st/<stage>/ + painted-test/stages-contact.jpg (wide/two/CU on every plate) — scale and headroom OK, no planner issues.
+- NEXT: M3 integration (painted mode in the Generate flow).
