@@ -60,3 +60,6 @@ teeth, NOT sticking out. Thin white gutters between cells."
   Earlier kits re-checked with p2_kitcomp (kabir/bittu/meera/ramesh): placement OK.
   Chiku kit check FAILED on idle/explain/offer (grids drew a frontal, zoomed-out head -> 6-10 SIFT inliers, patches misplaced)
   -> those grids are being regenerated.
+- 22:47 Bholu 7 poses built: 2x2 grids (GRID=2x2 CELLS=closed,aa,O,I), pruned MBP=closed,E=I,U=I,FV=closed,L=I.
+  Registration good (38-91 inliers). Blinks ghosted on idle/surprised/think/offer -> dropped (explain/sit keep blinks; laugh NO_BLINK).
+  check: _check/bholu-kit.jpg. Flaws: idle 'aa' jaw slightly doubled; only 4 mouth shapes (dog).
