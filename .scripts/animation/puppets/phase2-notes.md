@@ -109,3 +109,7 @@ Code lives in the worktree at src/lib/services/animation/painted/ (python next t
 ### M3 step 3 / M4 start (Nov 24 23:26 IST)
 - Dev server: worktree only, `pnpm dev` (node server.js) PORT=4020, DB "ai-studio-anim" (log /workspace/anim-demo/logs/dev-4020.log). Port 4010 untouched.
 - M4 run: temp/m4-run.mjs registers a local test user (anim-test-p2-*@local.test, test DB only) and POSTs /api/generate {animationMode: "painted", dimension: horizontal, bgmMood: none} with temp/m4-script.txt (Bhangarh fort mystery). Log /workspace/anim-demo/logs/m4-run.log. Resume: re-POST with the same jobId (job state in ai-studio-anim).
+
+### M4 attempts (Nov 24 23:26-23:45 IST)
+- Run 1 (killed): writer limits too loose (Hindi Edge TTS ~8-9 chars/s incl. pauses) → ~80-90 s episode. Fixed: 380-500 chars budget, voice rates +6..+8%.
+- Run 2: AI failed both rounds (>4 talkers in a part, too long) → template; template part failed the guard (react-bittu, Kamla half-head) → stock fallback. Fixed: guard fallback CU/react/OTS → two-shot with the neighbour → wide; writer auto-drops extra talkers and trims middle lines to the budget (warnings, not errors). NOTE: the pipeline wipes the worktree temp/ after a job → M4 harness moved to /workspace/anim-demo/m4/ (m4-run.mjs, m4-script.txt, plan-template.mjs).
