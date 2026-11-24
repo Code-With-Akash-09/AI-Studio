@@ -42,3 +42,9 @@ teeth, NOT sticking out. Thin white gutters between cells."
   Prunes: think O=U (blank-glasses cell). Flaws: surprised blink cell is a one-eye wink; L tongue-out on explain; moustache hides MBP/U.
 - 21:50 Kabir DONE (rebuilt with the gutter/key-shade fix: cheek smears gone). Kits poses/p2/kabir-*; check _check/kabir-mouths.jpg.
   Flaws: laugh base is a one-eye wink (painted that way); faint grey edge on sit closed/MBP chin; L tongue-out in a few cells.
+- 21:54 interrupted again (Chiku grid gens laugh/offer/sit aborted). Queues q9 (Hariprasad prep), q11 (Bholu prep), q12 Meera build,
+  q13 Anaya build, q14 Kamla build kept running. Chiku: eyefix surprised+think saved, idle/explain grids saved.
+  Next: L tongue-out cells -> p2_prune L=I where the sheet shows the tongue out.
+- 22:00 L tongue-out fix: grid prompt cell 9 now "tongue tip hidden just behind the upper teeth, tongue NOT visible outside the mouth"
+  (Chiku grids came out clean with it); existing tongue-out L cells pruned L=I: bittu-idle/surprised/sit, ramesh-papa-explain/surprised
+  (+ chiku-idle/explain/think after build). Rule from now: check every sheet's L column, prune L=I where the tongue shows.
