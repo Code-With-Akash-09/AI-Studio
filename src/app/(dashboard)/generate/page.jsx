@@ -34,7 +34,7 @@ export default function GeneratePage() {
     const [geminiKey, setGeminiKey] = useState("");
     const [bgmMood, setBgmMood] = useState("none");
     const [bgmVolume, setBgmVolume] = useState(0.1);
-    // video mode (needs ANIMATION_ENABLED on the server): off | mix | full
+    // video mode (needs ANIMATION_ENABLED on the server): off | mix | full | painted
     const [animationMode, setAnimationModeState] = useState("off");
     const [animationAvailable, setAnimationAvailable] = useState(false);
 
@@ -66,7 +66,7 @@ export default function GeneratePage() {
                 setAnimationAvailable(ok);
                 const saved = localStorage.getItem(ANIMATION_MODE_KEY);
                 setAnimationModeState(
-                    ok && ["off", "mix", "full"].includes(saved)
+                    ok && ["off", "mix", "full", "painted"].includes(saved)
                         ? saved
                         : "off",
                 );
@@ -79,6 +79,8 @@ export default function GeneratePage() {
 
     const setAnimationMode = useCallback((mode) => {
         setAnimationModeState(mode);
+        // painted puppet episodes are always 16:9
+        if (mode === "painted") setDimension("horizontal");
         try {
             localStorage.setItem(ANIMATION_MODE_KEY, mode);
         } catch {}

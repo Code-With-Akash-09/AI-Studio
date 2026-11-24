@@ -114,7 +114,7 @@ export async function POST(request) {
             bgmMood,
             bgmVolume,
             // opt-in per video; ignored unless ANIMATION_ENABLED=true.
-            // animationMode: "off" | "mix" | "full" (characterAnimation: true
+            // animationMode: "off" | "mix" | "full" | "painted" (characterAnimation: true
             // still means "mix"); omitted → ANIMATION_PIPELINE_DEFAULT
             characterAnimation,
             animationMode,

@@ -26,8 +26,13 @@ export function characterAnimationFor(option) {
     );
 }
 
-/** Per-job video modes: "off" (stock visuals), "mix" (1-2 character scenes), "full" (cartoon episode). */
-export const ANIMATION_MODES = ["off", "mix", "full"];
+/**
+ * Per-job video modes: "off" (stock visuals), "mix" (1-2 character scenes),
+ * "full" (cartoon episode, code-drawn rig), "painted" (painted cutout-puppet
+ * episode: AI-written multi-character Hindi dialogue, shot planner, painted
+ * backgrounds, 16:9, voices only — see painted/README.md).
+ */
+export const ANIMATION_MODES = ["off", "mix", "full", "painted"];
 
 /**
  * Resolve the job's animation mode. `animationMode` wins; the older boolean
@@ -57,6 +62,7 @@ export function defaultAnimationMode() {
         .toLowerCase()
         .trim();
     if (raw === "full") return "full";
+    if (raw === "painted") return "painted";
     if (raw === "mix" || raw === "true") return "mix";
     return "off";
 }

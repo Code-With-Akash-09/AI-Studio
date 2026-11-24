@@ -46,6 +46,11 @@ const VIDEO_MODES = [
         label: "Full cartoon",
         help: "Whole video is a cartoon episode: the AI writes a Hindi dialogue with Raazu, Golu and guest characters made for your script. Voices only unless you pick a music mood (Auto = no music).",
     },
+    {
+        value: "painted",
+        label: "Painted puppets",
+        help: "Painted cartoon episode (always 16:9): Kabir, Bittu, Chiku and family act out your topic as a Hindi mystery dialogue with shot changes, reactions, prop close-ups and painted sets. Voices only.",
+    },
 ];
 
 const DIMENSION_OPTIONS = [
@@ -410,7 +415,7 @@ export function StudioSettings({
                                 <span>Video Mode</span>
                             </Label>
                             <div
-                                className="grid grid-cols-3 gap-2"
+                                className="grid grid-cols-2 gap-2"
                                 role="radiogroup"
                                 aria-label="Video mode"
                             >
