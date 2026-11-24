@@ -10,7 +10,8 @@ class Puppet:
 
     def img(self, rel):
         if rel not in self.cache:
-            a = np.array(Image.open(f'{self.root}/{self.name}/{rel}').convert('RGBA')).astype(np.float32)
+            path = rel if os.path.isabs(rel) else f'{self.root}/{self.name}/{rel}'
+            a = np.array(Image.open(path).convert('RGBA')).astype(np.float32)
             a[..., :3] *= a[..., 3:4] / 255.0  # premultiplied
             self.cache[rel] = a
         return self.cache[rel]
@@ -30,7 +31,7 @@ def bone_chain(layer):
     if part in ('head',) or layer.get('group') in ('mouth', 'eyes', 'brows', 'expr'): return ['root', 'head']
     if part == 'arm_upper': return ['root', f'arm_upper_{s}']
     if part == 'arm_lower': return ['root', f'arm_upper_{s}', f'arm_lower_{s}']
-    if part == 'hand': return ['root', f'arm_upper_{s}', f'arm_lower_{s}', f'hand_{s}']
+    if part in ('hand', 'prop'): return ['root', f'arm_upper_{s}', f'arm_lower_{s}', f'hand_{s}']
     if part == 'leg_upper': return ['root', f'leg_upper_{s}']
     if part == 'leg_lower': return ['root', f'leg_upper_{s}', f'leg_lower_{s}']
     if part == 'accessory':
@@ -84,6 +85,11 @@ def render(pup, view, pose, canvas_size, place, flip=False, tint=None):
         if l.get('part') == 'accessory' and l.get('detachable') and not pose.get('show_' + l['file'].split('/')[-1][4:-4], True): continue
         drawn.append(l)
     drawn += fl
+    # props held in a hand: {'img': abs path, 'side': 'L'|'R', 'grip': (px,py) in prop image, 'at': (x,y) rig coords,
+    #                        'deg': rotation, 'scale': prop px -> rig px, 'z': offset from the hand's z (-0.1 = behind fingers)}
+    hand_z = {l['side']: l['z'] for l in layers if l.get('part') == 'hand'}
+    for pr in pose.get('props', []):
+        drawn.append(dict(file=pr['img'], part='prop', side=pr['side'], prop=pr, z=hand_z.get(pr['side'], 60) + pr.get('z', 0.1)))
     drawn.sort(key=lambda l: l['z'])
     for l in drawn:
         M = base.copy()
@@ -97,7 +103,11 @@ def render(pup, view, pose, canvas_size, place, flip=False, tint=None):
                 if b == 'root': M = M @ rot_about(V['ground'], deg)
                 elif deg: M = M @ rot_about(pivots[b], deg)
         img = pup.img(l['file'])
-        M = M @ T(l['x'], l['y'])
+        if l.get('part') == 'prop':
+            pr = l['prop']; sc = pr.get('scale', 1.0)
+            M = M @ T(*pr['at']) @ rot_about((0, 0), pr.get('deg', 0)) @ np.diag([sc, sc, 1]) @ T(-pr['grip'][0], -pr['grip'][1])
+        else:
+            M = M @ T(l['x'], l['y'])
         warped = cv2.warpAffine(img, M[:2], (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
         a = warped[..., 3:4] / 255.0
         canvas = warped + canvas * (1 - a)
@@ -108,3 +118,22 @@ def render(pup, view, pose, canvas_size, place, flip=False, tint=None):
 def over_bg(bg_rgb, fg_pm):
     a = fg_pm[..., 3:4] / 255.0
     return np.clip(fg_pm[..., :3] + bg_rgb.astype(np.float32) * (1 - a), 0, 255)
+
+def prop_point(pup, view, pose, place, pr, pt, flip=False):
+    """Screen position of a point `pt` (prop image px) on a hand-held prop, using the same FK as render()."""
+    V = pup.rig['views'][view]
+    gx, gy = V['ground']; x, y, s = place
+    M = T(x, y) @ np.diag([(-s if flip else s), s, 1]) @ T(-gx, -gy) @ T(*pose.get('offset', (0, 0)))
+    side = pr['side']
+    piv = {}
+    for l in V['layers']:
+        b = l['file'].split('/')[-1][:-4]
+        if l.get('part') in ('arm_upper', 'arm_lower'): piv[b] = l['pivot']
+        if l.get('part') == 'hand': piv[f"hand_{l['side']}"] = l['pivot']
+    for b in ['root', f'arm_upper_{side}', f'arm_lower_{side}', f'hand_{side}']:
+        deg = pose.get(b, 0.0)
+        M = M @ rot_about(V['ground'] if b == 'root' else piv[b], deg)
+    sc = pr.get('scale', 1.0)
+    M = M @ T(*pr['at']) @ rot_about((0, 0), pr.get('deg', 0)) @ np.diag([sc, sc, 1]) @ T(-pr['grip'][0], -pr['grip'][1])
+    p = M @ np.array([pt[0], pt[1], 1.0])
+    return float(p[0]), float(p[1])
