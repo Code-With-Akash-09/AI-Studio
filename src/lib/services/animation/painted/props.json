@@ -1,0 +1,15 @@
+{
+  "_doc": "Painted prop inserts (PUPPET_ROOT/props/<id>.png, keyed RGBA). Shown full frame over the blurred set while the line continues. tags: words that pick the prop from a line.",
+  "props": [
+    {"id": "map", "label": "old treasure map", "tags": ["map", "naksha", "नक्शा", "नक़्शा", "treasure", "खज़ाना", "खजाना"]},
+    {"id": "key", "label": "antique brass key", "tags": ["key", "chabi", "चाबी", "ताला", "lock"]},
+    {"id": "lantern", "label": "oil lantern", "tags": ["lantern", "lalten", "लालटेन", "दीया", "lamp", "रोशनी", "light"]},
+    {"id": "diary", "label": "old diary / book", "tags": ["diary", "डायरी", "book", "किताब", "पन्ने", "page"]},
+    {"id": "letter", "label": "sealed old letter", "tags": ["letter", "chitthi", "चिट्ठी", "ख़त", "खत", "पत्र", "envelope"]},
+    {"id": "watch", "label": "pocket watch", "tags": ["watch", "clock", "घड़ी", "समय", "time"]},
+    {"id": "photo", "label": "old photograph of a haveli", "tags": ["photo", "फ़ोटो", "फोटो", "तस्वीर", "picture", "हवेली", "haveli"]},
+    {"id": "coins", "label": "old copper coins", "tags": ["coin", "सिक्के", "सिक्का", "paisa", "पैसे"]},
+    {"id": "compass", "label": "brass compass", "tags": ["compass", "कम्पास", "दिशा", "direction", "उत्तर"]},
+    {"id": "magnifier", "label": "magnifying glass", "tags": ["magnifying", "magnifier", "आतशी", "लेंस", "lens", "सुराग", "clue", "जासूस"]}
+  ]
+}
