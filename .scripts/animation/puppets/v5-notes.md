@@ -1,0 +1,17 @@
+# v5 progress notes (started 6:30 PM IST)
+Feedback on v4: Kabir looks at / waves toward the camera. v5 rule: nobody looks at or gestures to the viewer; Kabir (screen-left) faces right
+toward Dadi, Dadi (screen-right) faces left toward Kabir (180-degree rule kept on every cut); pupils on the other character.
+
+## Plan
+- Regenerate all Kabir whole-body poses as strong 3/4 profiles (body + head turned to Dadi, eyes on her): wave (palm toward Dadi, back of
+  hand to camera), show (key held out to her), keyup (proud, still looking at her), beckon (replaces the point: "chalo" come-on gesture to her).
+- Check Dadi's three poses' eyelines; regenerate any that look at the camera.
+- Blinks: per-pose closed-eye edit of the same painting, registered onto the pose -> eye patch (so it fits that exact head).
+- Keep v4: one-piece painted poses, dense warp + fold check, key painted in the fist, full-frame insert, lamp moved.
+
+## Log
+- 18:35 generated Kabir v5 poses (all strong 3/4 facing left -> flipped to face Dadi, pupils toward her): wave (2 retries until the BACK of the waving hand faces camera, nails visible), show, keyup, beckon (replaces the camera-ish point). Dadi calm/reach eyelines already on Kabir; surprised regenerated (v4 pupils were centred = at camera). Next: per-pose face edits (eyes+mouth closed, mouth open, mouth O) so blinks and lip shapes fit each exact head.
+- 18:44 v5 wave: 1st/2nd/3rd generations still showed the flat PALM to camera; 5th = hand turned edge-on (palm faces left -> Dadi after flip, nails visible) -> accepted, new fx edits made. Face edits per pose (fx-closed, fx-aa) registered by SIFT (70-114 inliers, ~identity) and differenced -> exact-fit blink + closed/aa mouths (build_pose_v5.py, facecheck_v5.py). Dadi surprised v5 built with grid patches (23 inliers); brows patch dropped in v5 (it moved her pupils).
+- 18:49 wave fx-closed regenerated (1st edit turned the head; diff merged eyes+mouth). kabir-v5wave built, faces OK (_check/fc5w.png). keyhole.py: interior screen-colour hole killer (0 px found on v5 kits). talk_test_v5.py: replace-mask face compositing, v5 casting, gem_v5.json (show 433,527 / keyup 476,372 / beckon 1129,580), wave on kabir-v5wave (elbow 590,850 wrist 458,680, hand region x<560, forearm x<660 & y>560), brows off, blinks closed-only, 'base' mouth = no patch. warpcheck (TT=talk_test_v5): first try folded the back-of-head hair (det -1.7) -> region gates -> all kits det min >= 0.638, no folds. Test frames OK; full render started.
+- 18:57 full render: kabir-talk-test-v5.mp4 (1920x1080 h264 + aac, 15.72 s). stills/puppet-v5/: eyeline-check.jpg (6 shots x first/mid/last, both heads, arrow = required look direction), contact.jpg, per-shot full frames, 100% arm/hand crops. Eyeline check: Kabir pupils screen-RIGHT (at Dadi) in every Kabir-visible frame; Dadi pupils screen-LEFT (at Kabir) in every Dadi-visible frame. Screen direction constant across all cuts (Kabir L facing R, Dadi R facing L). Wave: edge-on hand, palm toward Dadi, no fold (warpcheck det min 0.638).
+- Remaining flaws: beckon (last shot) torso is a front-leaning 3/4 (head + eyes + open palm are on Dadi, chest opens a bit toward camera); Dadi calm/reach are still v4 grid kits (eyes OK, only closed-blink now, no half-lid); OTS shots show Kabir's foreground shoulder/hair only as a soft blur; mouth shapes on v5 Kabir are 3 (closed / base smile-open / aa), coarser than Dadi's 9.

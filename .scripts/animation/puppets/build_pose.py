@@ -15,6 +15,7 @@ EYES_USE = {1: 'half', 2: 'closed'}
 # landmarks measured on gridcrop.py sheets (pupil L, pupil R, mouth centre), x2 HD coords of grid cell 0
 MASTER_LM = {('kabir', 'front'): [(325, 337), (442, 332), (385, 452)], ('kabir', '34'): [(300, 342), (412, 335), (357, 460)]}
 POSE_LM = {('kabir', 'wave'): ('front', [(785, 331), (890, 312), (845, 420)]), ('kabir', 'point'): ('front', [(755, 332), (860, 316), (810, 425)])}
+BROWS_USE = {3: 'raised'}
 MOUTH_ONLY = {('kabir', 'wave'), ('kabir', 'point')}   # glasses differ in angle: blink/brow patches would double the frames; BROWS_USE = {3: 'raised'}
 
 def scale_hd(hd, k=2):
@@ -33,7 +34,7 @@ def build(char, pose, view=None):
     if view is None and (char, pose) in POSE_LM: view = POSE_LM[(char, pose)][0]
     if view is None:   # pick the grid view (34 or front) whose master head registers best on this pose
         best = None
-        b0 = load(f'{HD}/{char}-v4-{pose}.png'); ys0 = np.where(b0[..., 3] > 30)[0]
+        b0 = load((f'{HD}/{char}-{pose}.png' if pose.startswith('v5-') else f'{HD}/{char}-v4-{pose}.png')); ys0 = np.where(b0[..., 3] > 30)[0]
         roi0 = (0, max(0, ys0.min() - 20), b0.shape[1], int(ys0.min() + 0.30 * (ys0.max() - ys0.min())))
         for v in ('34', 'front'):
             if not os.path.exists(f'{HD}/{c["src"]}-{v}-visemes.png'): continue
@@ -42,7 +43,7 @@ def build(char, pose, view=None):
             if best is None or nn > best[1]: best = (v, nn)
         view = best[0]
     hd = scale_hd(CHARS[c['cfg']]['views'][view]['head'])
-    body = load(f'{HD}/{char}-v4-{pose}.png'); H, W = body.shape[:2]
+    body = load((f'{HD}/{char}-{pose}.png' if pose.startswith('v5-') else f'{HD}/{char}-v4-{pose}.png')); H, W = body.shape[:2]
     al = body[..., 3] > 30; ys, xs = np.where(al)
     top, bot = ys.min(), ys.max()
     vis = load(f'{HD}/{c["src"]}-{view}-visemes.png'); master = cell(vis, 0, 0); hh, hw = master.shape[:2]
