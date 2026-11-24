@@ -116,8 +116,8 @@ def clamp_plate(c, h):
 
 def guard(shot, actors, B, subjects, need_full=()):
     """Fix the framing of one shot; returns (shot, issues). B: {id: boxes in the shot's poses}."""
-    c, h = list(shot['c']), shot['h']; issues = []
-    for attempt in range(14):
+    c, h = list(shot['c']), shot['h']; issues = []; h0 = h
+    for attempt in range(18):
         c, h = clamp_plate(c, h); W = win_box(c, h)
         bad = []
         for s in subjects:                                       # subject heads in, with headroom
@@ -150,9 +150,22 @@ def guard(shot, actors, B, subjects, need_full=()):
             for dist, sg in sorted(cand, key=lambda t: t[0]):
                 if dist <= 0: continue
                 W2 = win_box([c[0] + sg * dist, c[1]], h)
-                if all(inside(B[s]['head'], W2, 0.02 * h, 0.035 * h) for s in subjects): ok = (dist, sg); break
+                if all(inside(B[s]['head'], W2, 0.02 * h, 0.035 * h) for s in subjects) and (inside(hb, W2) or outside(hb, W2)): ok = (dist, sg); break
             if ok: c = [c[0] + ok[1] * ok[0], c[1]]
             else:
+                # push it out over the top edge (window down), or take it in (looser framing around both heads)
+                alts = []
+                dn = hb[3] - W[1] + 2
+                if dn > 0: alts.append(([c[0], c[1] + dn], h))
+                U = [min([B[s]['head'][0] for s in subjects] + [hb[0]]), min([B[s]['head'][1] for s in subjects] + [hb[1]]),
+                     max([B[s]['head'][2] for s in subjects] + [hb[2]]), max([B[s]['head'][3] for s in subjects] + [hb[3]])]
+                nh = max(h, (U[3] - U[1]) * 1.3, (U[2] - U[0]) * 1.15 * E.SH / E.SW)
+                if nh <= h0 * 2.4: alts.append(([(U[0] + U[2]) / 2, U[1] - 0.06 * nh + nh / 2], nh))
+                for c2, h2 in alts:
+                    c2, h2 = clamp_plate(c2, h2); W2 = win_box(c2, h2)
+                    if all(inside(B[s]['head'], W2, 0.02 * h2, 0.035 * h2) for s in subjects) and (inside(hb, W2) or outside(hb, W2)):
+                        ok = (c2, h2); break
+                if ok: c, h = list(ok[0]), ok[1]; continue
                 # vertical: a head cut by the top edge -> drop the window or raise it
                 if hb[1] < W[1] < hb[3]: c = [c[0], c[1] - (W[1] - hb[1]) - 0.03 * h]
                 elif hb[1] < W[3] < hb[3]: c = [c[0], c[1] + (hb[3] - W[3]) + 2]
