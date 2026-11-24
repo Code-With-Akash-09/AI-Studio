@@ -101,7 +101,7 @@ Kabir is the lead who solves the mystery with evidence (never confirms ghosts or
 SETS (painted backgrounds; one per part): ${stages.map((s) => `"${s.id}" = ${s.label || s.id}`).join("; ")}.
 PROPS (painted close-up inserts; use only when the line talks about that object): ${props.map((p) => `"${p.id}" = ${p.label}`).join("; ")}.
 
-EPISODE SHAPE (16:9, about 45-60 seconds. The voices speak only ~9 characters per second, so the WHOLE episode has only 420-560 characters of dialogue: ${L.minLines + 1}-${L.maxLines - 2} SHORT lines of 25-45 characters (max ${L.maxChars}), natural spoken Hindi):
+EPISODE SHAPE (16:9, about 45-60 seconds. The voices speak only ~8 characters per second, so the WHOLE episode has only 380-500 characters of dialogue: ${L.minLines + 1}-${L.maxLines - 2} SHORT lines of 25-45 characters (max ${L.maxChars}), natural spoken Hindi):
 1. HOOK (first line): a surprising question or claim.
 2. Bittu's funny wrong guess or fear.
 3. The mystery explained with evidence in small accurate steps (use the 3-4 most important facts from the script; never invent false facts).
@@ -332,10 +332,10 @@ export function sanitizePaintedEpisode(raw, script = "") {
         );
     if (!parts.length) return { episode: null, errors, warnings };
     const chars = all.reduce((a, l) => a + l.text.length, 0);
-    if (chars < 360) warnings.push(`short episode (~${chars} chars)`);
-    if (chars > 640)
+    if (chars < 330) warnings.push(`short episode (~${chars} chars)`);
+    if (chars > 540)
         errors.push(
-            `too long (~${chars} characters of dialogue; Hindi TTS speaks only ~9 characters per second, so 45-60 seconds = about 420-560 characters of dialogue in total; use fewer / shorter lines)`,
+            `too long (~${chars} characters of dialogue; Hindi TTS speaks only ~8 characters per second, so 45-60 seconds = about 380-500 characters of dialogue in total; use fewer / shorter lines)`,
         );
     const episode = {
         title: cleanText(raw.title || "रहस्य", 80) || "रहस्य",
