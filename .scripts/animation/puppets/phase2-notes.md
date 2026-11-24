@@ -99,3 +99,9 @@ Code lives in the worktree at src/lib/services/animation/painted/ (python next t
 - ded1959: "painted" in ANIMATION_MODES (flags.js), "Painted puppets" in StudioSettings Video Mode (grid 2x2), generate page forces 16:9 for it.
 - painted/episode.js: writePaintedEpisode (AI via ai.factory, providers fallback, sanitize → 1 repair round → template), paintedScenes (one pipeline scene per part, painted: true, part = {stage, cast, lines[{speaker,to,emotion,text,props,reaction}]}).
 - NEXT: painted/render.js (per-line Edge TTS → spec → plan.py → guard → render.py) + video.service hook.
+
+### M3 step 2 — renderer + pipeline hook (Nov 25 ~00:35 IST)
+- 054bf7a painted/render.js renderPaintedScene: per-line Edge TTS (cast.json voices, cached in temp/painted-tts, offline/robotic voice = fail), mp3→24k wav, spec → plan.py → guard (issues → re-plan without inserts/reactions → still issues → throw → normal-visual fallback) → render.py --workers=3. video.service: animationMode "painted" → writePaintedEpisode + paintedScenes, 16:9 forced, BGM forced off.
+- Guard bug fixed (commit after 054bf7a): a horizontal "take-in" move was accepted though the head stayed cut at the top edge; candidates must now clear the head; added push-out-top / take-in-both alternatives. The Bittu-CU-beside-tall-Kabir case now resolves (Kabir pushed out of frame).
+- Smoke: temp/painted-smoke.mjs → temp/scene-99.mp4 (haveli-night, 3 lines, 8 shots, 14.9 s, 1920x1080 25fps SAR1 + AAC 44.1k stereo) in 179 s. Note: a neighbour's hand can still peek in at a CU edge (only heads are guarded).
+- NEXT: dev server on 4020 (worktree only) + M4 episode through the Generate flow.
